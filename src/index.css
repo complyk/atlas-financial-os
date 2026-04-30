@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-background: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #F4F4F5;
+  --color-border: #E4E4E7;
+  --color-border-subtle: #F4F4F5;
+  --color-text-primary: #09090B;
+  --color-text-secondary: #52525B;
+  --color-text-tertiary: #A1A1AA;
+  --color-accent: #0D9488;
+  --color-accent-light: #CCFBF1;
+  --color-positive: #16A34A;
+  --color-negative: #DC2626;
+  --color-warning: #D97706;
+  --color-chart-1: #0D9488;
+  --color-chart-2: #7C3AED;
+  --color-chart-3: #EA580C;
+  --color-chart-4: #0369A1;
+  --color-chart-5: #65A30D;
+  --color-chart-6: #DB2777;
+  --font-mono: 'Berkeley Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+}
+
+.dark {
+  --color-background: #09090B;
+  --color-surface: #18181B;
+  --color-surface-raised: #27272A;
+  --color-border: #3F3F46;
+  --color-border-subtle: #27272A;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-text-tertiary: #52525B;
+  --color-accent: #2DD4BF;
+  --color-accent-light: #042F2E;
+  --color-positive: #16A34A;
+  --color-negative: #DC2626;
+  --color-warning: #D97706;
+  --color-chart-1: #2DD4BF;
+  --color-chart-2: #A78BFA;
+  --color-chart-3: #FB923C;
+  --color-chart-4: #38BDF8;
+  --color-chart-5: #A3E635;
+  --color-chart-6: #F472B6;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Geist', sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border-width: 0;
+}
