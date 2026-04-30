@@ -12,8 +12,6 @@ export default function Subscriptions() {
     ]);
     const catMap = Object.fromEntries(categories.map(c => [c.id, c]));
     // Filter to subscription-type categories
-    const subCatIds = new Set(categories.filter(c => c.name.toLowerCase().includes('subscript') || c.name.toLowerCase().includes('entertainment')).map(c => c.id));
-    const subs = rules.filter(r => r.categoryId && subCatIds.has(r.categoryId));
     const all = rules; // show all recurring expenses
     return { subs: all, catMap };
   }, []);

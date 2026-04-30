@@ -20,7 +20,7 @@ function CategoryForm({ category, parentId, onClose }: { category?: Category; pa
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
     if (category) {
-      await db.categories.update(category.id, { ...data, updatedAt: ts });
+      await db.categories.update(category.id, { ...data, updatedAt: ts } as any);
     } else {
       await db.categories.add({ ...data as any, id: generateId(), parentId, isSystem: false, sortOrder: 0, createdAt: ts, updatedAt: ts });
     }

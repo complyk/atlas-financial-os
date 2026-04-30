@@ -169,7 +169,6 @@ export function runDeterministicPath(
       : proj.investmentReturnNominalAnnual);
   const monthlyReturn = Math.pow(1 + nominalReturn, 1 / 12) - 1;
   const inflation = overrides.inflationOverride ?? proj.inflationRate;
-  const monthlyInflation = Math.pow(1 + inflation, 1 / 12) - 1;
   const propertyGrowthMonthly = Math.pow(1 + (proj.propertyGrowthRate ?? 0.03), 1 / 12) - 1;
 
   // Income

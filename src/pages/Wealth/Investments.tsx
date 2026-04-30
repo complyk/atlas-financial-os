@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
-import { db, type Investment } from '../../db/schema';
-import { Card, CardHeader, CardTitle, Badge, Button, Modal, EmptyState, Skeleton, ConfirmDialog } from '../../components/ui';
+import { Plus, Trash2 } from 'lucide-react';
+import { db } from '../../db/schema';
+import { Card, CardHeader, CardTitle, Button, EmptyState, Skeleton, ConfirmDialog } from '../../components/ui';
 import { AllocationPie } from '../../components/charts/AllocationPie';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatPercent } from '../../lib/format';
-import { generateId } from '../../lib/utils';
-import { useForm } from 'react-hook-form';
 
 const ASSET_CLASS_COLORS: Record<string, string> = {
   global_equity: '#3b82f6', us_equity: '#10b981', uk_equity: '#f59e0b',
@@ -18,7 +16,6 @@ const ASSET_CLASS_COLORS: Record<string, string> = {
 };
 
 export default function Investments() {
-  const [showAdd, setShowAdd] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const data = useLiveQuery(async () => {
@@ -40,7 +37,7 @@ export default function Investments() {
   ).map(([name, value]) => ({ name, value, color: ASSET_CLASS_COLORS[name] })) : [];
 
   return (
-    <PageLayout actions={<Button onClick={() => setShowAdd(true)} size="sm"><Plus size={14} className="mr-1" />Add Holding</Button>}>
+    <PageLayout actions={<Button size="sm" disabled><Plus size={14} className="mr-1" />Add Holding</Button>}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card><p className="text-xs text-text-tertiary mb-1">Total Value</p><p className="font-mono text-xl font-bold text-text-primary">{formatCurrency(totalValue, 'AED', 'en-AE', true)}</p></Card>
         <Card><p className="text-xs text-text-tertiary mb-1">Total Cost</p><p className="font-mono text-xl font-bold text-text-secondary">{formatCurrency(totalCost, 'AED', 'en-AE', true)}</p></Card>

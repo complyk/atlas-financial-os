@@ -70,7 +70,7 @@ function AccountForm({ account, onClose }: { account?: Account; onClose: () => v
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
     if (account) {
-      await db.accounts.update(account.id, { ...data, updatedAt: ts });
+      await db.accounts.update(account.id, { ...data, updatedAt: ts } as any);
     } else {
       await db.accounts.add({ ...data as any, id: generateId(), isActive: true, sortOrder: 0, createdAt: ts, updatedAt: ts });
     }

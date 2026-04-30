@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
-import { db, type Goal, type GoalType, type GoalPriority } from '../../db/schema';
-import { Card, CardHeader, CardTitle, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge } from '../../components/ui';
+import { db, type Goal, type GoalPriority } from '../../db/schema';
+import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge } from '../../components/ui';
 import { GoalGauge } from '../../components/charts/GoalGauge';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -35,7 +35,7 @@ function GoalForm({ goal, onClose }: { goal?: Goal; onClose: () => void }) {
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
     if (goal) {
-      await db.goals.update(goal.id, { ...data, updatedAt: ts });
+      await db.goals.update(goal.id, { ...data, updatedAt: ts } as any);
     } else {
       await db.goals.add({ ...data as any, id: generateId(), isAchieved: false, createdAt: ts, updatedAt: ts });
     }

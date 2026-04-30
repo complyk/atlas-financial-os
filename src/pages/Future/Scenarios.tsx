@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, Edit2, Trash2, Star } from 'lucide-react';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type Scenario } from '../../db/schema';
 import { Card, Button, Modal, Input, EmptyState, Skeleton, ConfirmDialog, Badge } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';

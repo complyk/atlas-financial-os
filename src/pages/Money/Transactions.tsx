@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Search } from 'lucide-react';
-import { db, type Transaction, type TransactionType } from '../../db/schema';
+import { db, type TransactionType } from '../../db/schema';
 import { Card, Button, Select, Badge, Modal, EmptyState, Skeleton } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatDate } from '../../lib/format';

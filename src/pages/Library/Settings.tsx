@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { db } from '../../db/schema';
-import { Card, CardHeader, CardTitle, Button, Input, Select, Toggle, NumberInput, Skeleton } from '../../components/ui';
+import { Card, CardHeader, CardTitle, Button, Input, Select, Skeleton } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { useAppStore } from '../../stores/useAppStore';
 

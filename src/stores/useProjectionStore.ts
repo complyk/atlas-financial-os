@@ -11,7 +11,7 @@ interface ProjectionState {
   compute: (input: ProjectionInput, scenarioId?: string) => Promise<void>;
 }
 
-export const useProjectionStore = create<ProjectionState>((set, get) => ({
+export const useProjectionStore = create<ProjectionState>((set) => ({
   baseline: null,
   scenarios: {},
   isComputing: false,

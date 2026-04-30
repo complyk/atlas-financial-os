@@ -1,4 +1,4 @@
-import { X, Snooze } from 'lucide-react';
+import { X, BellOff } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -32,7 +32,7 @@ export function InsightCard({ recommendation: r, onDismiss, onSnooze, compact }:
           )}
         </div>
         <div className="flex gap-1 flex-shrink-0">
-          {onSnooze && <Button variant="ghost" size="sm" onClick={onSnooze} aria-label="Snooze 30 days"><Snooze size={14} /></Button>}
+          {onSnooze && <Button variant="ghost" size="sm" onClick={onSnooze} aria-label="Snooze 30 days"><BellOff size={14} /></Button>}
           {onDismiss && <Button variant="ghost" size="sm" onClick={onDismiss} aria-label="Dismiss"><X size={14} /></Button>}
         </div>
       </div>

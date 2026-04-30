@@ -27,7 +27,7 @@ function PersonForm({ person, onClose }: { person?: Person; onClose: () => void 
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
     if (person) {
-      await db.people.update(person.id, { ...data, updatedAt: ts });
+      await db.people.update(person.id, { ...data, updatedAt: ts } as any);
     } else {
       await db.people.add({ ...data as any, id: generateId(), createdAt: ts, updatedAt: ts });
     }

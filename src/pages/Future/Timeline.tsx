@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type LifeEvent } from '../../db/schema';
-import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge } from '../../components/ui';
+import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { generateId } from '../../lib/utils';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, parseISO } from 'date-fns';
 
 const schema = z.object({
   name: z.string().min(1),
@@ -31,7 +30,7 @@ function EventForm({ event, onClose }: { event?: LifeEvent; onClose: () => void 
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
     if (event) {
-      await db.lifeEvents.update(event.id, { ...data, updatedAt: ts });
+      await db.lifeEvents.update(event.id, { ...data, updatedAt: ts } as any);
     } else {
       await db.lifeEvents.add({ ...data as any, id: generateId(), isActive: true, createdAt: ts, updatedAt: ts });
     }

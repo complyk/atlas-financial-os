@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/schema';
-import { Card, Skeleton, EmptyState } from '../../components/ui';
+import { Skeleton, EmptyState } from '../../components/ui';
 import { InsightCard } from '../../components/shared/InsightCard';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { generateRecommendations } from '../../lib/recommendations';

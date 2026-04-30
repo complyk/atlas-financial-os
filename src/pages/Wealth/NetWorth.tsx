@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { db } from '../../db/schema';
-import { Card, CardHeader, CardTitle, Badge, Tabs, Skeleton } from '../../components/ui';
+import { Card, CardHeader, CardTitle, Tabs, Skeleton } from '../../components/ui';
 import { NetWorthChart } from '../../components/charts/NetWorthChart';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency } from '../../lib/format';
@@ -13,7 +13,7 @@ export default function NetWorth() {
     const [accounts, assets, liabilities, allSnapshots] = await Promise.all([
       db.accounts.filter(a => a.isActive && a.includeInNetWorth).toArray(),
       db.assets.filter(a => a.includeInNetWorth).toArray(),
-      db.liabilities.filter(l => l.includeInNetWorth !== false).toArray(),
+      db.liabilities.toArray(),
       db.monthlySnapshots.orderBy('yearMonth').toArray(),
     ]);
 

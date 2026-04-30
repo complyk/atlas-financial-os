@@ -29,16 +29,6 @@ function now(): string {
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
-function isoDate(year: number, month: number, day: number): string {
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-function addMonths(dateStr: string, months: number): string {
-  const d = new Date(dateStr);
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
-}
-
 function subtractMonths(months: number): string {
   const d = new Date();
   d.setMonth(d.getMonth() - months);
@@ -1133,7 +1123,6 @@ export async function seedDatabase(): Promise<void> {
       safeWithdrawalRate: 0.04,
       propertyGrowthRate: 0.04,
       stateRetirementIncome: 0, // UAE has no state pension
-      currency: 'AED',
     },
   };
 

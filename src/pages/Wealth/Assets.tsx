@@ -4,7 +4,7 @@ import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type Asset, type AssetType } from '../../db/schema';
 import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
-import { formatCurrency, formatPercent } from '../../lib/format';
+import { formatCurrency } from '../../lib/format';
 import { generateId } from '../../lib/utils';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -33,7 +33,7 @@ function AssetForm({ asset, onClose }: { asset?: Asset; onClose: () => void }) {
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
     if (asset) {
-      await db.assets.update(asset.id, { ...data, updatedAt: ts });
+      await db.assets.update(asset.id, { ...data, updatedAt: ts } as any);
     } else {
       await db.assets.add({ ...data as any, id: generateId(), currency: 'AED', includeInNetWorth: true, createdAt: ts, updatedAt: ts });
     }

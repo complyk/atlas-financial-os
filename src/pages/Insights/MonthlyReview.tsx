@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns';
 import { db } from '../../db/schema';
-import { Card, CardHeader, CardTitle, Tabs, Skeleton } from '../../components/ui';
+import { Card, CardHeader, CardTitle, Skeleton } from '../../components/ui';
 import { CashFlowBar } from '../../components/charts/CashFlowBar';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatPercentPlain } from '../../lib/format';

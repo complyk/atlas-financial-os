@@ -1,5 +1,4 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
 import { db } from '../../db/schema';
 import { Card, CardHeader, CardTitle, Skeleton } from '../../components/ui';
 import { FanChart } from '../../components/charts/FanChart';

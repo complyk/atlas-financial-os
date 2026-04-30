@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type Liability } from '../../db/schema';
-import { Card, CardHeader, CardTitle, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog } from '../../components/ui';
+import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { generateId } from '../../lib/utils';
@@ -32,7 +32,7 @@ function LiabilityForm({ liability, onClose }: { liability?: Liability; onClose:
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
     if (liability) {
-      await db.liabilities.update(liability.id, { ...data, updatedAt: ts });
+      await db.liabilities.update(liability.id, { ...data, updatedAt: ts } as any);
     } else {
       await db.liabilities.add({ ...data as any, id: generateId(), createdAt: ts, updatedAt: ts });
     }

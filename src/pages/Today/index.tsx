@@ -7,7 +7,7 @@ import { NetWorthChart } from '../../components/charts/NetWorthChart';
 import { GoalGauge } from '../../components/charts/GoalGauge';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatMonths } from '../../lib/format';
-import { startOfMonth, endOfMonth, subMonths, addDays, format } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, addDays } from 'date-fns';
 import { generateRecommendations } from '../../lib/recommendations';
 
 export default function Today() {
@@ -15,7 +15,7 @@ export default function Today() {
     const [accounts, assets, liabilities, goals, recurringRules, settings] = await Promise.all([
       db.accounts.filter(a => a.isActive).toArray(),
       db.assets.filter(a => a.includeInNetWorth).toArray(),
-      db.liabilities.filter(l => l.includeInNetWorth !== false).toArray(),
+      db.liabilities.toArray(),
       db.goals.filter(g => !g.isAchieved).toArray(),
       db.recurringRules.filter(r => r.isActive).toArray(),
       db.settings.get('singleton'),

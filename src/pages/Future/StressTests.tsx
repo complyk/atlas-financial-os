@@ -2,11 +2,12 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Zap } from 'lucide-react';
 import { db } from '../../db/schema';
-import { Card, CardHeader, CardTitle, Button, Skeleton } from '../../components/ui';
+import { Card, Button, Skeleton } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency } from '../../lib/format';
 import { BUILT_IN_STRESS_TESTS, runStressTest } from '../../lib/stressTests';
 import type { StressTestResult } from '../../lib/stressTests';
+import { runProjection } from '../../lib/projections';
 import type { ProjectionInput } from '../../lib/projections';
 
 export default function StressTests() {
@@ -36,7 +37,8 @@ export default function StressTests() {
       const test = BUILT_IN_STRESS_TESTS.find(t => t.id === testId);
       if (!test) { setRunning(null); return; }
       try {
-        const result = runStressTest(baseInput, test);
+        const baselineResult = runProjection(baseInput);
+        const result = runStressTest(test, baseInput, baselineResult);
         setResults(prev => ({ ...prev, [testId]: result }));
       } catch (e) {
         console.error(e);
@@ -51,7 +53,8 @@ export default function StressTests() {
       setRunning(test.id);
       await new Promise<void>(resolve => setTimeout(() => {
         try {
-          const result = runStressTest(baseInput, test);
+          const baselineResult = runProjection(baseInput);
+          const result = runStressTest(test, baseInput, baselineResult);
           setResults(prev => ({ ...prev, [test.id]: result }));
         } catch (e) { console.error(e); }
         resolve();
