@@ -2,8 +2,8 @@ import { format as fnsFormat, parseISO } from 'date-fns';
 
 export function formatCurrency(
   value: number,
-  currency = 'GBP',
-  locale = 'en-GB',
+  currency = 'AED',
+  locale = 'en-AE',
   compact = false,
 ): string {
   if (compact && Math.abs(value) >= 1_000_000)
