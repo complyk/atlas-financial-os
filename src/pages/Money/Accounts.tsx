@@ -8,6 +8,7 @@ import { generateId } from '../../lib/utils';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useAppStore } from '../../stores/useAppStore';
 
 const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   current: 'Current', savings: 'Savings', isa_cash: 'ISA Cash', isa_stocks: 'ISA Stocks',
@@ -37,6 +38,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function AccountCard({ account, onEdit, onDelete }: { account: Account; onEdit: () => void; onDelete: () => void }) {
+  const { currency: defaultCurrency } = useAppStore();
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
@@ -55,7 +57,7 @@ function AccountCard({ account, onEdit, onDelete }: { account: Account; onEdit: 
       <div className="flex items-end justify-between">
         <EditableCurrency
           value={account.balance}
-          currency={account.currency || 'AED'}
+          currency={account.currency || defaultCurrency}
           size="lg"
           align="left"
           compact
@@ -72,9 +74,10 @@ function AccountCard({ account, onEdit, onDelete }: { account: Account; onEdit: 
 }
 
 function AccountForm({ account, onClose }: { account?: Account; onClose: () => void }) {
+  const { currency: defaultCurrency } = useAppStore();
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: account ? { ...account } : { currency: 'AED', includeInNetWorth: true, balance: 0, type: 'current' },
+    defaultValues: account ? { ...account } : { currency: defaultCurrency, includeInNetWorth: true, balance: 0, type: 'current' },
   });
   const onSubmit = async (data: FormData) => {
     const ts = new Date().toISOString();
@@ -92,7 +95,7 @@ function AccountForm({ account, onClose }: { account?: Account; onClose: () => v
       <Input label="Provider / Institution" error={errors.provider?.message} {...register('provider')} placeholder="e.g. Emirates NBD" />
       <Select label="Account Type" options={typeOptions} {...register('type')} />
       <Controller name="balance" control={control} render={({ field }) => (
-        <NumberInput label="Current Balance" prefix="AED" value={field.value} onChange={field.onChange} step={100} />
+        <NumberInput label="Current Balance" prefix={defaultCurrency} value={field.value} onChange={field.onChange} step={100} />
       )} />
       <Controller name="interestRate" control={control} render={({ field }) => (
         <NumberInput label="Interest Rate (optional)" suffix="%" value={field.value !== undefined ? field.value * 100 : ''} onChange={v => field.onChange(v / 100)} step={0.1} />

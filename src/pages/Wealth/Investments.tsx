@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, Trash2, Pencil, Check, X } from 'lucide-react';
-import { db, type Investment } from '../../db/schema';
-import { cn } from '../../lib/utils';
-import { Card, CardHeader, CardTitle, Button, EmptyState, Skeleton, ConfirmDialog, EditableCurrency } from '../../components/ui';
+import { Plus, Trash2, Pencil, Check, X, Edit2 } from 'lucide-react';
+import { db, type Investment, type AssetClass } from '../../db/schema';
+import { cn, generateId } from '../../lib/utils';
+import { Card, CardHeader, CardTitle, Button, EmptyState, Skeleton, ConfirmDialog, EditableCurrency, Modal, Input, Select, NumberInput } from '../../components/ui';
 import { AllocationPie } from '../../components/charts/AllocationPie';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatPercent } from '../../lib/format';
+import { useAppStore } from '../../stores/useAppStore';
+import { useForm, Controller } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 function EditableUnits({ value, onSave }: { value: number; onSave: (v: number) => Promise<void> | void }) {
   const [editing, setEditing] = useState(false);
@@ -56,8 +60,138 @@ const ASSET_CLASS_COLORS: Record<string, string> = {
   alternatives: '#a855f7', other: '#6b7280',
 };
 
+const ASSET_CLASSES: AssetClass[] = [
+  'global_equity', 'us_equity', 'uk_equity', 'eu_equity', 'emerging_equity',
+  'bonds_global', 'bonds_uk', 'bonds_corp', 'property_reit', 'commodities',
+  'cash_equiv', 'crypto', 'alternatives', 'other',
+];
+
+const CURRENCY_OPTIONS = ['AED', 'USD', 'GBP', 'EUR', 'SAR', 'INR'];
+
+const INVESTMENT_ACCOUNT_TYPES = ['investment', 'isa_stocks', 'pension_dc', 'pension_db', 'crypto'];
+
+const investmentSchema = z.object({
+  name: z.string().min(1, 'Name required'),
+  ticker: z.string().optional(),
+  assetClass: z.string().min(1),
+  accountId: z.string().min(1, 'Account required'),
+  units: z.number().min(0),
+  costBasisPerUnit: z.number().min(0),
+  currentPricePerUnit: z.number().min(0),
+  currency: z.string().min(1),
+  notes: z.string().optional(),
+});
+type InvestmentFormData = z.infer<typeof investmentSchema>;
+
+function InvestmentForm({ investment, onClose }: { investment?: Investment; onClose: () => void }) {
+  const { currency: defaultCurrency } = useAppStore();
+  const accounts = useLiveQuery(
+    () => db.accounts.filter(a => a.isActive && INVESTMENT_ACCOUNT_TYPES.includes(a.type)).toArray(),
+    []
+  );
+  const { register, handleSubmit, control, formState: { errors } } = useForm<InvestmentFormData>({
+    resolver: zodResolver(investmentSchema),
+    defaultValues: investment
+      ? {
+          name: investment.name,
+          ticker: investment.ticker,
+          assetClass: investment.assetClass,
+          accountId: investment.accountId,
+          units: investment.units,
+          costBasisPerUnit: investment.costBasisPerUnit,
+          currentPricePerUnit: investment.currentPricePerUnit,
+          currency: investment.currency,
+          notes: investment.notes,
+        }
+      : {
+          assetClass: 'global_equity',
+          accountId: '',
+          units: 0,
+          costBasisPerUnit: 0,
+          currentPricePerUnit: 0,
+          currency: defaultCurrency,
+        },
+  });
+
+  const onSubmit = async (data: InvestmentFormData) => {
+    const ts = new Date().toISOString();
+    if (investment) {
+      await db.investments.update(investment.id, {
+        name: data.name,
+        ticker: data.ticker,
+        assetClass: data.assetClass as AssetClass,
+        accountId: data.accountId,
+        units: data.units,
+        costBasisPerUnit: data.costBasisPerUnit,
+        currentPricePerUnit: data.currentPricePerUnit,
+        currency: data.currency,
+        notes: data.notes,
+        updatedAt: ts,
+      } as Partial<Investment>);
+    } else {
+      await db.investments.add({
+        id: generateId(),
+        name: data.name,
+        ticker: data.ticker,
+        assetClass: data.assetClass as AssetClass,
+        accountId: data.accountId,
+        units: data.units,
+        costBasisPerUnit: data.costBasisPerUnit,
+        currentPricePerUnit: data.currentPricePerUnit,
+        currency: data.currency,
+        notes: data.notes,
+        createdAt: ts,
+        updatedAt: ts,
+      });
+    }
+    onClose();
+  };
+
+  const accountOptions = (accounts ?? []).map(a => ({ value: a.id, label: `${a.name}${a.provider ? ' · ' + a.provider : ''}` }));
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <Input label="Name" error={errors.name?.message} {...register('name')} placeholder="e.g. Vanguard FTSE Global All Cap" />
+      <Input label="Ticker (optional)" {...register('ticker')} placeholder="e.g. VWRL" />
+      <Select
+        label="Asset Class"
+        options={ASSET_CLASSES.map(c => ({ value: c, label: c.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase()) }))}
+        {...register('assetClass')}
+      />
+      <Select
+        label="Account"
+        options={accountOptions.length === 0
+          ? [{ value: '', label: 'No investment accounts available' }]
+          : [{ value: '', label: 'Select account' }, ...accountOptions]}
+        error={errors.accountId?.message}
+        {...register('accountId')}
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <Controller name="units" control={control} render={({ field }) => <NumberInput label="Units" value={field.value} onChange={field.onChange} step={1} />} />
+        <Controller name="currentPricePerUnit" control={control} render={({ field }) => {
+          // currency for prefix is the form's currency - we'll just leave it unprefixed; handled by currency Select
+          return <NumberInput label="Current Price / Unit" value={field.value} onChange={field.onChange} step={0.01} />;
+        }} />
+      </div>
+      <Controller name="costBasisPerUnit" control={control} render={({ field }) => <NumberInput label="Cost Basis / Unit" value={field.value} onChange={field.onChange} step={0.01} />} />
+      <Select
+        label="Currency"
+        options={CURRENCY_OPTIONS.map(c => ({ value: c, label: c }))}
+        {...register('currency')}
+      />
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+        <Button type="submit">{investment ? 'Save' : 'Add Holding'}</Button>
+      </div>
+    </form>
+  );
+}
+
 export default function Investments() {
+  const { currency, locale } = useAppStore();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editInvestment, setEditInvestment] = useState<Investment | null>(null);
 
   const data = useLiveQuery(async () => {
     const [investments, accounts] = await Promise.all([db.investments.toArray(), db.accounts.toArray()]);
@@ -78,11 +212,11 @@ export default function Investments() {
   ).map(([name, value]) => ({ name, value, color: ASSET_CLASS_COLORS[name] })) : [];
 
   return (
-    <PageLayout actions={<Button size="sm" disabled><Plus size={14} className="mr-1" />Add Holding</Button>}>
+    <PageLayout actions={<Button size="sm" onClick={() => setShowAdd(true)}><Plus size={14} className="mr-1" />Add Holding</Button>}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card><p className="text-xs text-text-tertiary mb-1">Total Value</p><p className="font-mono text-xl font-bold text-text-primary">{formatCurrency(totalValue, 'AED', 'en-AE', true)}</p></Card>
-        <Card><p className="text-xs text-text-tertiary mb-1">Total Cost</p><p className="font-mono text-xl font-bold text-text-secondary">{formatCurrency(totalCost, 'AED', 'en-AE', true)}</p></Card>
-        <Card><p className="text-xs text-text-tertiary mb-1">Unrealised P&amp;L</p><p className={`font-mono text-xl font-bold ${totalGain >= 0 ? 'text-positive' : 'text-negative'}`}>{formatCurrency(totalGain, 'AED', 'en-AE', true)}</p></Card>
+        <Card><p className="text-xs text-text-tertiary mb-1">Total Value</p><p className="font-mono text-xl font-bold text-text-primary">{formatCurrency(totalValue, currency, locale, true)}</p></Card>
+        <Card><p className="text-xs text-text-tertiary mb-1">Total Cost</p><p className="font-mono text-xl font-bold text-text-secondary">{formatCurrency(totalCost, currency, locale, true)}</p></Card>
+        <Card><p className="text-xs text-text-tertiary mb-1">Unrealised P&amp;L</p><p className={`font-mono text-xl font-bold ${totalGain >= 0 ? 'text-positive' : 'text-negative'}`}>{formatCurrency(totalGain, currency, locale, true)}</p></Card>
         <Card><p className="text-xs text-text-tertiary mb-1">Return</p><p className={`font-mono text-xl font-bold ${totalGain >= 0 ? 'text-positive' : 'text-negative'}`}>{totalCost > 0 ? formatPercent(totalGain / totalCost) : '—'}</p></Card>
       </div>
 
@@ -91,7 +225,11 @@ export default function Investments() {
           <Card>
             <CardHeader><CardTitle>Holdings</CardTitle></CardHeader>
             {!data ? <Skeleton className="h-48" /> : data.investments.length === 0 ? (
-              <EmptyState title="No holdings" description="Add your investment positions." />
+              <EmptyState
+                title="No holdings"
+                description="Add your investment positions."
+                action={<Button onClick={() => setShowAdd(true)}><Plus size={14} className="mr-1" />Add Holding</Button>}
+              />
             ) : (
               <div className="divide-y divide-border">
                 {data.investments.map(inv => {
@@ -114,12 +252,12 @@ export default function Investments() {
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0 flex flex-col items-end">
-                        <p className="font-mono text-sm font-semibold text-text-primary">{formatCurrency(value, inv.currency || 'AED', 'en-AE', true)}</p>
+                        <p className="font-mono text-sm font-semibold text-text-primary">{formatCurrency(value, inv.currency || currency, locale, true)}</p>
                         <div className="flex items-center gap-1 text-xs text-text-tertiary">
                           <span>@</span>
                           <EditableCurrency
                             value={inv.currentPricePerUnit}
-                            currency={inv.currency || 'AED'}
+                            currency={inv.currency || currency}
                             size="sm"
                             align="right"
                             ariaLabel={`Edit price for ${inv.name}`}
@@ -128,9 +266,10 @@ export default function Investments() {
                             }}
                           />
                         </div>
-                        <p className={`font-mono text-xs ${gain >= 0 ? 'text-positive' : 'text-negative'}`}>{gain >= 0 ? '+' : ''}{formatCurrency(gain, inv.currency || 'AED', 'en-AE', true)}</p>
+                        <p className={`font-mono text-xs ${gain >= 0 ? 'text-positive' : 'text-negative'}`}>{gain >= 0 ? '+' : ''}{formatCurrency(gain, inv.currency || currency, locale, true)}</p>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(inv.id)} aria-label="Delete"><Trash2 size={13} /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditInvestment(inv)} aria-label={`Edit ${inv.name}`}><Edit2 size={13} /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(inv.id)} aria-label={`Delete ${inv.name}`}><Trash2 size={13} /></Button>
                     </div>
                   );
                 })}
@@ -146,6 +285,12 @@ export default function Investments() {
         </div>
       </div>
 
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Holding">
+        <InvestmentForm onClose={() => setShowAdd(false)} />
+      </Modal>
+      <Modal open={!!editInvestment} onClose={() => setEditInvestment(null)} title="Edit Holding">
+        {editInvestment && <InvestmentForm investment={editInvestment} onClose={() => setEditInvestment(null)} />}
+      </Modal>
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { if (deleteId) { await db.investments.delete(deleteId); setDeleteId(null); } }} title="Remove Holding" message="This will permanently remove this holding." confirmLabel="Remove" destructive />
     </PageLayout>
   );

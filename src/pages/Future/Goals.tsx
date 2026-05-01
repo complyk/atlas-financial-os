@@ -10,6 +10,7 @@ import { generateId } from '../../lib/utils';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAppStore } from '../../stores/useAppStore';
 
 const PRIORITY_LABELS: Record<GoalPriority, string> = { essential: 'Essential', important: 'Important', nice_to_have: 'Nice to Have' };
 const PRIORITY_VARIANTS: Record<GoalPriority, 'negative' | 'warning' | 'default'> = { essential: 'negative', important: 'warning', nice_to_have: 'default' };
@@ -21,13 +22,14 @@ const schema = z.object({
   targetAmount: z.number().min(1),
   currentAmount: z.number().min(0),
   monthlyContribution: z.number().min(0),
-  targetDate: z.string(),
+  targetDate: z.string().min(1, 'Target date required').refine(s => !!Date.parse(s), 'Invalid date'),
   notes: z.string().optional(),
   color: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
 function GoalForm({ goal, onClose }: { goal?: Goal; onClose: () => void }) {
+  const { currency } = useAppStore();
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: goal ? { ...goal } : { type: 'other', priority: 'important', targetAmount: 0, currentAmount: 0, monthlyContribution: 0, targetDate: '', color: '#3b82f6' },
@@ -47,10 +49,10 @@ function GoalForm({ goal, onClose }: { goal?: Goal; onClose: () => void }) {
       <Input label="Goal Name" error={errors.name?.message} {...register('name')} placeholder="e.g. Emergency Fund" />
       <Select label="Type" options={goalTypes.map(t => ({ value: t, label: t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))} {...register('type')} />
       <Select label="Priority" options={[{value:'essential',label:'Essential'},{value:'important',label:'Important'},{value:'nice_to_have',label:'Nice to Have'}]} {...register('priority')} />
-      <Controller name="targetAmount" control={control} render={({ field }) => <NumberInput label="Target Amount" prefix="AED" value={field.value} onChange={field.onChange} step={1000} />} />
-      <Controller name="currentAmount" control={control} render={({ field }) => <NumberInput label="Current Amount" prefix="AED" value={field.value} onChange={field.onChange} step={100} />} />
-      <Controller name="monthlyContribution" control={control} render={({ field }) => <NumberInput label="Monthly Contribution" prefix="AED" value={field.value} onChange={field.onChange} step={100} />} />
-      <Input label="Target Date" type="date" {...register('targetDate')} />
+      <Controller name="targetAmount" control={control} render={({ field }) => <NumberInput label="Target Amount" prefix={currency} value={field.value} onChange={field.onChange} step={1000} />} />
+      <Controller name="currentAmount" control={control} render={({ field }) => <NumberInput label="Current Amount" prefix={currency} value={field.value} onChange={field.onChange} step={100} />} />
+      <Controller name="monthlyContribution" control={control} render={({ field }) => <NumberInput label="Monthly Contribution" prefix={currency} value={field.value} onChange={field.onChange} step={100} />} />
+      <Input label="Target Date" type="date" error={errors.targetDate?.message} {...register('targetDate')} />
       <div className="flex gap-2 items-end">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-text-secondary">Colour</label>
@@ -67,6 +69,7 @@ function GoalForm({ goal, onClose }: { goal?: Goal; onClose: () => void }) {
 }
 
 export default function Goals() {
+  const { currency, locale } = useAppStore();
   const goals = useLiveQuery(() => db.goals.filter(g => !g.isAchieved).toArray(), []);
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -94,8 +97,8 @@ export default function Goals() {
                 <div className="flex items-start justify-between">
                   <Badge variant={PRIORITY_VARIANTS[goal.priority]}>{PRIORITY_LABELS[goal.priority]}</Badge>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => setEditGoal(goal)}><Edit2 size={13} /></Button>
-                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(goal.id)}><Trash2 size={13} /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => setEditGoal(goal)} aria-label={`Edit ${goal.name}`}><Edit2 size={13} /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => setDeleteId(goal.id)} aria-label={`Delete ${goal.name}`}><Trash2 size={13} /></Button>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -119,7 +122,7 @@ export default function Goals() {
                       }}
                     />
                   </div>
-                  <div className="flex justify-between text-xs"><span className="text-text-tertiary">Target</span><span className="font-mono font-semibold text-text-primary">{formatCurrency(goal.targetAmount, 'AED', 'en-AE', true)}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-text-tertiary">Target</span><span className="font-mono font-semibold text-text-primary">{formatCurrency(goal.targetAmount, currency, locale, true)}</span></div>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-text-tertiary">Monthly</span>
                     <EditableCurrency

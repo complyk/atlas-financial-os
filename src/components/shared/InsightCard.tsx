@@ -1,4 +1,4 @@
-import { X, BellOff } from 'lucide-react';
+import { X, BellOff, RotateCcw } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -10,10 +10,11 @@ interface InsightCardProps {
   recommendation: RecommendationOutput & { id?: string };
   onDismiss?: () => void;
   onSnooze?: () => void;
+  onRestore?: () => void;
   compact?: boolean;
 }
 
-export function InsightCard({ recommendation: r, onDismiss, onSnooze, compact }: InsightCardProps) {
+export function InsightCard({ recommendation: r, onDismiss, onSnooze, onRestore, compact }: InsightCardProps) {
   const { currency, locale } = useAppStore();
   const priorityVariant = { high: 'negative' as const, medium: 'warning' as const, low: 'default' as const };
   return (
@@ -34,6 +35,7 @@ export function InsightCard({ recommendation: r, onDismiss, onSnooze, compact }:
         <div className="flex gap-1 flex-shrink-0">
           {onSnooze && <Button variant="ghost" size="sm" onClick={onSnooze} aria-label="Snooze 30 days"><BellOff size={14} /></Button>}
           {onDismiss && <Button variant="ghost" size="sm" onClick={onDismiss} aria-label="Dismiss"><X size={14} /></Button>}
+          {onRestore && <Button variant="ghost" size="sm" onClick={onRestore} aria-label="Restore"><RotateCcw size={14} /></Button>}
         </div>
       </div>
     </Card>

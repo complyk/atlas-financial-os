@@ -9,8 +9,10 @@ import { BUILT_IN_STRESS_TESTS, runStressTest } from '../../lib/stressTests';
 import type { StressTestResult } from '../../lib/stressTests';
 import { runProjection } from '../../lib/projections';
 import type { ProjectionInput } from '../../lib/projections';
+import { useAppStore } from '../../stores/useAppStore';
 
 export default function StressTests() {
+  const { currency, locale } = useAppStore();
   const [results, setResults] = useState<Record<string, StressTestResult>>({});
   const [running, setRunning] = useState<string | null>(null);
 
@@ -86,13 +88,13 @@ export default function StressTests() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-surface-raised rounded-lg p-2">
                         <p className="text-xs text-text-tertiary">NW Year 5</p>
-                        <p className="font-mono text-sm font-bold text-text-primary">{formatCurrency(result.netWorthAtYear5, 'AED', 'en-AE', true)}</p>
-                        <p className={`text-xs font-mono ${result.deltaYear5 >= 0 ? 'text-positive' : 'text-negative'}`}>{result.deltaYear5 >= 0 ? '+' : ''}{formatCurrency(result.deltaYear5, 'AED', 'en-AE', true)}</p>
+                        <p className="font-mono text-sm font-bold text-text-primary">{formatCurrency(result.netWorthAtYear5, currency, locale, true)}</p>
+                        <p className={`text-xs font-mono ${result.deltaYear5 >= 0 ? 'text-positive' : 'text-negative'}`}>{result.deltaYear5 >= 0 ? '+' : ''}{formatCurrency(result.deltaYear5, currency, locale, true)}</p>
                       </div>
                       <div className="bg-surface-raised rounded-lg p-2">
                         <p className="text-xs text-text-tertiary">NW Year 10</p>
-                        <p className="font-mono text-sm font-bold text-text-primary">{formatCurrency(result.netWorthAtYear10, 'AED', 'en-AE', true)}</p>
-                        <p className={`text-xs font-mono ${result.deltaYear10 >= 0 ? 'text-positive' : 'text-negative'}`}>{result.deltaYear10 >= 0 ? '+' : ''}{formatCurrency(result.deltaYear10, 'AED', 'en-AE', true)}</p>
+                        <p className="font-mono text-sm font-bold text-text-primary">{formatCurrency(result.netWorthAtYear10, currency, locale, true)}</p>
+                        <p className={`text-xs font-mono ${result.deltaYear10 >= 0 ? 'text-positive' : 'text-negative'}`}>{result.deltaYear10 >= 0 ? '+' : ''}{formatCurrency(result.deltaYear10, currency, locale, true)}</p>
                       </div>
                     </div>
                     {result.minimumFix && <p className="text-xs text-text-tertiary">{result.minimumFix}</p>}

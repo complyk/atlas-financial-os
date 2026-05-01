@@ -11,9 +11,9 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 const schema = z.object({
-  name: z.string().min(1),
-  role: z.string(),
-  dateOfBirth: z.string(),
+  name: z.string().min(1, 'Name is required'),
+  role: z.enum(['primary', 'secondary', 'child', 'dependent']),
+  dateOfBirth: z.string().min(1, 'Date of birth is required'),
   lifeExpectancy: z.number().optional(),
   retirementAge: z.number().optional(),
 });
@@ -37,7 +37,7 @@ function PersonForm({ person, onClose }: { person?: Person; onClose: () => void 
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Input label="Name" error={errors.name?.message} {...register('name')} />
       <Select label="Role" options={[{value:'primary',label:'Primary'},{value:'secondary',label:'Secondary'},{value:'child',label:'Child'},{value:'dependent',label:'Dependent'}]} {...register('role')} />
-      <Input label="Date of Birth" type="date" {...register('dateOfBirth')} />
+      <Input label="Date of Birth" type="date" error={errors.dateOfBirth?.message} {...register('dateOfBirth')} />
       <Input label="Life Expectancy (age)" type="number" {...register('lifeExpectancy', { valueAsNumber: true })} />
       <Input label="Retirement Age" type="number" {...register('retirementAge', { valueAsNumber: true })} />
       <div className="flex justify-end gap-2 pt-2">
@@ -55,7 +55,7 @@ export default function People() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   return (
-    <PageLayout actions={<Button onClick={() => setShowAdd(true)} size="sm"><Plus size={14} className="mr-1" />Add Person</Button>}>
+    <PageLayout actions={<Button onClick={() => setShowAdd(true)} size="sm" aria-label="Add person"><Plus size={14} className="mr-1" />Add Person</Button>}>
       {!people ? <Skeleton className="h-64" />
         : people.length === 0 ? <EmptyState title="No people" description="Add household members to personalise projections." action={<Button onClick={() => setShowAdd(true)}><Plus size={14} />Add</Button>} />
         : (
@@ -67,8 +67,8 @@ export default function People() {
                   <div className="flex items-start justify-between">
                     <div className="w-10 h-10 rounded-full bg-accent-light flex items-center justify-center text-accent font-bold text-sm">{p.name.slice(0, 1)}</div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setEditPerson(p)}><Edit2 size={13} /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(p.id)}><Trash2 size={13} /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Edit ${p.name}`} onClick={() => setEditPerson(p)}><Edit2 size={13} /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Delete ${p.name}`} onClick={() => setDeleteId(p.id)}><Trash2 size={13} /></Button>
                     </div>
                   </div>
                   <div>

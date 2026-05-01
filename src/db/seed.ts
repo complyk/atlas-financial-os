@@ -75,6 +75,15 @@ const REAL_HISTORY: RealMonth[] = [
 // ─── Seed function ────────────────────────────────────────────────────────────
 
 export async function seedDatabase(): Promise<void> {
+  db.seedingActive = true;
+  try {
+    await seedDatabaseInner();
+  } finally {
+    db.seedingActive = false;
+  }
+}
+
+async function seedDatabaseInner(): Promise<void> {
   const ts = now();
 
   // ── People ────────────────────────────────────────────────────────────────

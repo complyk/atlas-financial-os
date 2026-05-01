@@ -6,6 +6,7 @@ import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, 
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency } from '../../lib/format';
 import { generateId } from '../../lib/utils';
+import { useAppStore } from '../../stores/useAppStore';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +27,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function AssetForm({ asset, onClose }: { asset?: Asset; onClose: () => void }) {
+  const { currency } = useAppStore();
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: asset ? { ...asset } : { type: 'property', currentValue: 0 },
@@ -35,7 +37,7 @@ function AssetForm({ asset, onClose }: { asset?: Asset; onClose: () => void }) {
     if (asset) {
       await db.assets.update(asset.id, { ...data, updatedAt: ts } as any);
     } else {
-      await db.assets.add({ ...data as any, id: generateId(), currency: 'AED', includeInNetWorth: true, createdAt: ts, updatedAt: ts });
+      await db.assets.add({ ...data as any, id: generateId(), currency, includeInNetWorth: true, createdAt: ts, updatedAt: ts });
     }
     onClose();
   };
@@ -43,8 +45,8 @@ function AssetForm({ asset, onClose }: { asset?: Asset; onClose: () => void }) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Input label="Asset Name" error={errors.name?.message} {...register('name')} placeholder="e.g. Dubai Marina Apartment" />
       <Select label="Type" options={Object.entries(ASSET_TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))} {...register('type')} />
-      <Controller name="currentValue" control={control} render={({ field }) => <NumberInput label="Current Value" prefix="AED" value={field.value} onChange={field.onChange} step={1000} />} />
-      <Controller name="purchaseValue" control={control} render={({ field }) => <NumberInput label="Purchase Value (optional)" prefix="AED" value={field.value || ''} onChange={field.onChange} step={1000} />} />
+      <Controller name="currentValue" control={control} render={({ field }) => <NumberInput label="Current Value" prefix={currency} value={field.value} onChange={field.onChange} step={1000} />} />
+      <Controller name="purchaseValue" control={control} render={({ field }) => <NumberInput label="Purchase Value (optional)" prefix={currency} value={field.value || ''} onChange={field.onChange} step={1000} />} />
       <Input label="Purchase Date (optional)" type="date" {...register('purchaseDate')} />
       <Input label="Address / Description (optional)" {...register('address')} />
       <div className="flex justify-end gap-2 pt-2">
@@ -56,6 +58,7 @@ function AssetForm({ asset, onClose }: { asset?: Asset; onClose: () => void }) {
 }
 
 export default function Assets() {
+  const { currency, locale } = useAppStore();
   const assets = useLiveQuery(() => db.assets.filter(a => a.includeInNetWorth !== false).toArray(), []);
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -66,7 +69,7 @@ export default function Assets() {
   return (
     <PageLayout actions={<Button onClick={() => setShowAdd(true)} size="sm"><Plus size={14} className="mr-1" />Add Asset</Button>}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Card><p className="text-xs text-text-tertiary mb-1">Total Asset Value</p><p className="font-mono text-2xl font-bold text-text-primary">{formatCurrency(totalValue, 'AED', 'en-AE', true)}</p></Card>
+        <Card><p className="text-xs text-text-tertiary mb-1">Total Asset Value</p><p className="font-mono text-2xl font-bold text-text-primary">{formatCurrency(totalValue, currency, locale, true)}</p></Card>
         <Card><p className="text-xs text-text-tertiary mb-1">Assets</p><p className="font-mono text-2xl font-bold text-text-primary">{assets?.length ?? 0}</p></Card>
       </div>
 
@@ -82,8 +85,8 @@ export default function Assets() {
                   <div className="flex items-start justify-between">
                     <Badge variant="default">{ASSET_TYPE_LABELS[asset.type]}</Badge>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setEditAsset(asset)}><Edit2 size={13} /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(asset.id)}><Trash2 size={13} /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditAsset(asset)} aria-label={`Edit ${asset.name}`}><Edit2 size={13} /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteId(asset.id)} aria-label={`Delete ${asset.name}`}><Trash2 size={13} /></Button>
                     </div>
                   </div>
                   <div>
@@ -92,7 +95,7 @@ export default function Assets() {
                   </div>
                   <EditableCurrency
                     value={asset.currentValue}
-                    currency={asset.currency || 'AED'}
+                    currency={asset.currency || currency}
                     size="lg"
                     align="left"
                     compact
@@ -103,7 +106,7 @@ export default function Assets() {
                   />
                   {gain !== null && gainPct !== null && (
                     <p className={`text-xs font-mono ${gain >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      {gain >= 0 ? '+' : ''}{formatCurrency(gain, 'AED', 'en-AE', true)} ({gain >= 0 ? '+' : ''}{(gainPct * 100).toFixed(1)}%)
+                      {gain >= 0 ? '+' : ''}{formatCurrency(gain, asset.currency || currency, locale, true)} ({gain >= 0 ? '+' : ''}{(gainPct * 100).toFixed(1)}%)
                     </p>
                   )}
                 </Card>

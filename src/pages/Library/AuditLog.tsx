@@ -33,16 +33,21 @@ export default function AuditLog() {
         : (
           <Card padded={false}>
             <div className="divide-y divide-border max-h-[calc(100vh-200px)] overflow-y-auto">
-              {(filtered ?? []).map(entry => (
-                <div key={entry.id} className="flex items-center gap-3 px-4 py-3">
-                  <Badge variant={ACTION_VARIANTS[entry.action] || 'default'}>{entry.action}</Badge>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary">{entry.table}</p>
-                    <p className="text-xs text-text-tertiary font-mono truncate">{entry.recordId}</p>
+              {(filtered ?? []).map(entry => {
+                const snippet = (entry.diff
+                  ?? (entry.after ? JSON.stringify(entry.after) : entry.before ? JSON.stringify(entry.before) : '')) as string;
+                return (
+                  <div key={entry.id} className="flex items-start gap-3 px-4 py-3">
+                    <Badge variant={ACTION_VARIANTS[entry.action] || 'default'} className="mt-0.5">{entry.action}</Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text-primary">{entry.table}</p>
+                      <p className="text-xs text-text-tertiary font-mono truncate">{entry.recordId}</p>
+                      {snippet && <p className="text-xs text-text-tertiary font-mono truncate mt-1">{snippet.slice(0, 160)}</p>}
+                    </div>
+                    <span className="text-xs text-text-tertiary flex-shrink-0 font-mono">{formatDate(entry.timestamp, 'dd MMM HH:mm')}</span>
                   </div>
-                  <span className="text-xs text-text-tertiary flex-shrink-0 font-mono">{formatDate(entry.timestamp, 'dd MMM HH:mm')}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         )}

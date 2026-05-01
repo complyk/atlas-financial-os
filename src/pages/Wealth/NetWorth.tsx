@@ -5,15 +5,17 @@ import { Card, CardHeader, CardTitle, Tabs, Skeleton } from '../../components/ui
 import { NetWorthChart } from '../../components/charts/NetWorthChart';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency } from '../../lib/format';
+import { useAppStore } from '../../stores/useAppStore';
 
 export default function NetWorth() {
+  const { currency, locale } = useAppStore();
   const [range, setRange] = useState<'3m' | '6m' | '1y' | 'all'>('1y');
 
   const data = useLiveQuery(async () => {
     const [accounts, assets, liabilities, allSnapshots] = await Promise.all([
       db.accounts.filter(a => a.isActive && a.includeInNetWorth).toArray(),
       db.assets.filter(a => a.includeInNetWorth).toArray(),
-      db.liabilities.toArray(),
+      db.liabilities.filter(l => l.includeInNetWorth !== false).toArray(),
       db.monthlySnapshots.orderBy('yearMonth').toArray(),
     ]);
 
@@ -42,19 +44,23 @@ export default function NetWorth() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <p className="text-xs text-text-tertiary mb-1">Net Worth</p>
-          <p className="font-mono text-xl font-bold text-text-primary tabular-nums">{formatCurrency(netWorth, 'AED', 'en-AE', true)}</p>
+          <p className="font-mono text-xl font-bold text-text-primary tabular-nums">{formatCurrency(netWorth, currency, locale, true)}</p>
+          <p className="text-xs text-text-tertiary mt-1">Assets − Liabilities</p>
         </Card>
         <Card>
           <p className="text-xs text-text-tertiary mb-1">Liquid Cash</p>
-          <p className="font-mono text-xl font-bold text-positive tabular-nums">{formatCurrency(totalAccounts, 'AED', 'en-AE', true)}</p>
+          <p className="font-mono text-xl font-bold text-positive tabular-nums">{formatCurrency(totalAccounts, currency, locale, true)}</p>
+          <p className="text-xs text-text-tertiary mt-1">Active accounts</p>
         </Card>
         <Card>
           <p className="text-xs text-text-tertiary mb-1">Total Assets</p>
-          <p className="font-mono text-xl font-bold text-text-primary tabular-nums">{formatCurrency(totalAccounts + totalAssets, 'AED', 'en-AE', true)}</p>
+          <p className="font-mono text-xl font-bold text-text-primary tabular-nums">{formatCurrency(totalAccounts + totalAssets, currency, locale, true)}</p>
+          <p className="text-xs text-text-tertiary mt-1">Accounts + Other assets</p>
         </Card>
         <Card>
           <p className="text-xs text-text-tertiary mb-1">Total Liabilities</p>
-          <p className="font-mono text-xl font-bold text-negative tabular-nums">{formatCurrency(totalLiabilities, 'AED', 'en-AE', true)}</p>
+          <p className="font-mono text-xl font-bold text-negative tabular-nums">{formatCurrency(totalLiabilities, currency, locale, true)}</p>
+          <p className="text-xs text-text-tertiary mt-1">Outstanding debt</p>
         </Card>
       </div>
 
@@ -78,7 +84,7 @@ export default function NetWorth() {
                 <p className="text-sm font-medium text-text-primary">{a.name}</p>
                 <p className="text-xs text-text-tertiary">{a.provider} · {a.type}</p>
               </div>
-              <p className="font-mono text-sm font-semibold text-text-primary">{formatCurrency(a.balance, a.currency || 'AED', 'en-AE', true)}</p>
+              <p className="font-mono text-sm font-semibold text-text-primary">{formatCurrency(a.balance, a.currency || currency, locale, true)}</p>
             </div>
           ))}
           {assets.map(a => (
@@ -87,7 +93,7 @@ export default function NetWorth() {
                 <p className="text-sm font-medium text-text-primary">{a.name}</p>
                 <p className="text-xs text-text-tertiary">Asset · {a.type}</p>
               </div>
-              <p className="font-mono text-sm font-semibold text-text-primary">{formatCurrency(a.currentValue, a.currency || 'AED', 'en-AE', true)}</p>
+              <p className="font-mono text-sm font-semibold text-text-primary">{formatCurrency(a.currentValue, a.currency || currency, locale, true)}</p>
             </div>
           ))}
           {liabilities.map(l => (
@@ -96,7 +102,7 @@ export default function NetWorth() {
                 <p className="text-sm font-medium text-text-primary">{l.name}</p>
                 <p className="text-xs text-text-tertiary">Liability · {l.type}</p>
               </div>
-              <p className="font-mono text-sm font-semibold text-negative">-{formatCurrency(l.outstandingBalance, 'AED', 'en-AE', true)}</p>
+              <p className="font-mono text-sm font-semibold text-negative">-{formatCurrency(l.outstandingBalance, currency, locale, true)}</p>
             </div>
           ))}
         </div>

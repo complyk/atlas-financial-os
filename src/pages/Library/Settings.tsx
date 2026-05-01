@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { db } from '../../db/schema';
 import { Card, CardHeader, CardTitle, Button, Input, Select, Skeleton } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
@@ -8,7 +8,7 @@ import { syncWorkbook, type XLSXSyncReport } from '../../lib/xlsxImport';
 import { formatCurrency } from '../../lib/format';
 
 export default function Settings() {
-  const { theme, setTheme, density, setDensity } = useAppStore();
+  const { theme, setTheme, density, setDensity, setCurrency, setLocale } = useAppStore();
   const settings = useLiveQuery(() => db.settings.get('singleton'), []);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>(null);
@@ -17,14 +17,19 @@ export default function Settings() {
   const [xlsxReport, setXlsxReport] = useState<XLSXSyncReport | null>(null);
   const [xlsxError, setXlsxError] = useState<string | null>(null);
 
-  if (settings && !form) {
-    setForm({ ...settings });
-  }
+  useEffect(() => {
+    if (settings && !form) setForm({ ...settings });
+  }, [settings, form]);
 
   const handleSave = async () => {
     if (!form) return;
     setSaving(true);
     await db.settings.put(form);
+    // Keep the global store in sync so other pages re-render with new currency/locale.
+    if (form.currency) setCurrency(form.currency);
+    if (form.locale) setLocale(form.locale);
+    if (form.theme) setTheme(form.theme);
+    if (form.density) setDensity(form.density);
     setSaving(false);
   };
 
@@ -56,9 +61,12 @@ export default function Settings() {
             <Input label="Household Name" value={form.householdName} onChange={e => setForm({ ...form, householdName: e.target.value })} />
             <div className="grid grid-cols-2 gap-4">
               <Select label="Base Currency" value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })} options={[{value:'AED',label:'AED — UAE Dirham'},{value:'USD',label:'USD — US Dollar'},{value:'EUR',label:'EUR — Euro'},{value:'GBP',label:'GBP — British Pound'}]} />
-              <Select label="Theme" value={theme} onChange={e => setTheme(e.target.value as any)} options={[{value:'system',label:'System'},{value:'light',label:'Light'},{value:'dark',label:'Dark'}]} />
+              <Select label="Locale" value={form.locale || 'en-AE'} onChange={e => setForm({ ...form, locale: e.target.value })} options={[{value:'en-AE',label:'English (UAE)'},{value:'en-GB',label:'English (UK)'},{value:'en-US',label:'English (US)'},{value:'en-IE',label:'English (Ireland)'}]} />
             </div>
-            <Select label="Density" value={density} onChange={e => setDensity(e.target.value as any)} options={[{value:'comfortable',label:'Comfortable'},{value:'compact',label:'Compact'}]} />
+            <div className="grid grid-cols-2 gap-4">
+              <Select label="Theme" value={theme} onChange={e => setTheme(e.target.value as any)} options={[{value:'system',label:'System'},{value:'light',label:'Light'},{value:'dark',label:'Dark'}]} />
+              <Select label="Density" value={density} onChange={e => setDensity(e.target.value as any)} options={[{value:'comfortable',label:'Comfortable'},{value:'compact',label:'Compact'}]} />
+            </div>
           </div>
         </Card>
 
@@ -68,11 +76,11 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-text-secondary">Primary Income (AED/mo)</label>
+                <label className="text-sm font-medium text-text-secondary">Primary Income ({form.currency || 'AED'}/mo)</label>
                 <input type="number" value={form.primaryIncome} onChange={e => setForm({ ...form, primaryIncome: Number(e.target.value) })} className="px-3 py-2 text-sm rounded-lg border border-border bg-surface-raised font-mono focus:outline-none focus:border-accent" />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-text-secondary">Secondary Income (AED/mo)</label>
+                <label className="text-sm font-medium text-text-secondary">Secondary Income ({form.currency || 'AED'}/mo)</label>
                 <input type="number" value={form.secondaryIncome} onChange={e => setForm({ ...form, secondaryIncome: Number(e.target.value) })} className="px-3 py-2 text-sm rounded-lg border border-border bg-surface-raised font-mono focus:outline-none focus:border-accent" />
               </div>
             </div>

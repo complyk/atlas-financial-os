@@ -9,8 +9,10 @@ import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatMonths } from '../../lib/format';
 import { startOfMonth, endOfMonth, subMonths, addDays } from 'date-fns';
 import { generateRecommendations } from '../../lib/recommendations';
+import { useAppStore } from '../../stores/useAppStore';
 
 export default function Today() {
+  const { currency, locale } = useAppStore();
   const data = useLiveQuery(async () => {
     const [accounts, assets, liabilities, goals, recurringRules, settings] = await Promise.all([
       db.accounts.filter(a => a.isActive).toArray(),
@@ -83,7 +85,7 @@ export default function Today() {
             <CardTitle>Net Worth</CardTitle>
             <Badge variant={netWorth >= 0 ? 'positive' : 'negative'}>{netWorth >= 0 ? 'Positive' : 'Negative'}</Badge>
           </CardHeader>
-          <p className="font-mono text-3xl font-bold text-text-primary tabular-nums mb-4">{formatCurrency(netWorth, 'AED', 'en-AE', true)}</p>
+          <p className="font-mono text-3xl font-bold text-text-primary tabular-nums mb-4">{formatCurrency(netWorth, currency, locale, true)}</p>
           {nwHistory.length > 1
             ? <NetWorthChart data={nwHistory} height={120} sparkline />
             : <div className="h-20 flex items-center justify-center text-sm text-text-tertiary">Add transactions to see history</div>}
@@ -93,10 +95,10 @@ export default function Today() {
         <Card>
           <CardHeader><CardTitle>Cash Flow</CardTitle><span className="text-xs text-text-tertiary">This month</span></CardHeader>
           <div className="space-y-3">
-            <div className="flex justify-between text-sm"><span className="text-text-secondary">Income</span><span className="font-mono text-positive">{formatCurrency(income, 'AED', 'en-AE', true)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-text-secondary">Expenses</span><span className="font-mono text-negative">{formatCurrency(expenses, 'AED', 'en-AE', true)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-text-secondary">Income</span><span className="font-mono text-positive">{formatCurrency(income, currency, locale, true)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-text-secondary">Expenses</span><span className="font-mono text-negative">{formatCurrency(expenses, currency, locale, true)}</span></div>
             <div className="h-px bg-border" />
-            <div className="flex justify-between text-sm font-semibold"><span className="text-text-primary">Surplus</span><span className={`font-mono ${surplus >= 0 ? 'text-positive' : 'text-negative'}`}>{formatCurrency(surplus, 'AED', 'en-AE', true)}</span></div>
+            <div className="flex justify-between text-sm font-semibold"><span className="text-text-primary">Surplus</span><span className={`font-mono ${surplus >= 0 ? 'text-positive' : 'text-negative'}`}>{formatCurrency(surplus, currency, locale, true)}</span></div>
           </div>
         </Card>
 
@@ -125,7 +127,7 @@ export default function Today() {
               <GoalGauge progress={topGoal.currentAmount / topGoal.targetAmount} size={64} color={topGoal.color || 'var(--color-accent)'} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-text-primary truncate">{topGoal.name}</p>
-                <p className="text-xs text-text-tertiary">{formatCurrency(topGoal.currentAmount, 'AED', 'en-AE', true)} of {formatCurrency(topGoal.targetAmount, 'AED', 'en-AE', true)}</p>
+                <p className="text-xs text-text-tertiary">{formatCurrency(topGoal.currentAmount, currency, locale, true)} of {formatCurrency(topGoal.targetAmount, currency, locale, true)}</p>
                 <div className="mt-2 h-1.5 bg-surface-raised rounded-full overflow-hidden">
                   <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${Math.min(100, topGoal.currentAmount / topGoal.targetAmount * 100)}%` }} />
                 </div>
@@ -140,7 +142,7 @@ export default function Today() {
             <CardHeader><CardTitle>Top Insight</CardTitle><Link to="/insights" className="text-xs text-accent hover:underline">View all →</Link></CardHeader>
             <p className="text-sm font-semibold text-text-primary mb-1">{rec.title}</p>
             <p className="text-xs text-text-secondary line-clamp-3">{rec.body}</p>
-            {rec.estimatedAnnualValue && <p className="mt-2 text-xs font-mono font-semibold text-accent">+{formatCurrency(rec.estimatedAnnualValue, 'AED', 'en-AE', true)}/yr</p>}
+            {rec.estimatedAnnualValue && <p className="mt-2 text-xs font-mono font-semibold text-accent">+{formatCurrency(rec.estimatedAnnualValue, currency, locale, true)}/yr</p>}
           </Card>
         )}
 
@@ -152,7 +154,7 @@ export default function Today() {
               {upcoming.map(r => (
                 <div key={r.id} className="flex justify-between items-center text-sm">
                   <span className="text-text-secondary truncate">{r.name}</span>
-                  <span className={`font-mono flex-shrink-0 ml-2 ${r.type === 'income' ? 'text-positive' : 'text-negative'}`}>{formatCurrency(r.amount, 'AED', 'en-AE', true)}</span>
+                  <span className={`font-mono flex-shrink-0 ml-2 ${r.type === 'income' ? 'text-positive' : 'text-negative'}`}>{formatCurrency(r.amount, currency, locale, true)}</span>
                 </div>
               ))}
             </div>

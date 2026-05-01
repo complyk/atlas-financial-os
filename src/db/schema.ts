@@ -132,6 +132,7 @@ export interface Account {
   interestRate?: number; // decimal e.g. 0.045
   sortOrder: number;
   personId?: string; // owner
+  monthlyContribution?: number; // for pensions/investments — overrides settings rate
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -225,6 +226,7 @@ export interface Liability {
   notes?: string;
   personId?: string;
   includeInNetWorth?: boolean; // default true; users can hide a liability from NW
+  overpaymentMonthly?: number; // additional principal payment per month
   createdAt: string;
   updatedAt: string;
 }
@@ -411,12 +413,19 @@ export interface AuditEntry {
   action: 'create' | 'update' | 'delete';
   before?: unknown;
   after?: unknown;
+  diff?: string;
   timestamp: string;
 }
 
 // ─── Database ─────────────────────────────────────────────────────────────────
 
 export class AtlasDB extends Dexie {
+  /**
+   * When true, audit-log hooks skip writes. Used during seeding so we don't
+   * flood the audit log with bulk-insert noise.
+   */
+  seedingActive = false;
+
   people!: Table<Person, string>;
   accounts!: Table<Account, string>;
   transactions!: Table<Transaction, string>;
@@ -457,6 +466,90 @@ export class AtlasDB extends Dexie {
       settings: 'id',
       auditLog: 'id, table, recordId, action, timestamp',
     });
+
+    // ─── Audit-log hooks ──────────────────────────────────────────────────
+    // Mirror create/update/delete on tracked tables into the auditLog table.
+    // Note: auditLog itself is intentionally excluded to avoid recursion.
+    const trackedTables = [
+      'accounts',
+      'transactions',
+      'assets',
+      'liabilities',
+      'goals',
+      'lifeEvents',
+      'scenarios',
+      'categories',
+      'investments',
+      'insurancePolicies',
+      'recurringRules',
+      'people',
+    ] as const;
+
+    const makeAuditId = () =>
+      Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+    for (const tableName of trackedTables) {
+      const table = (this as any)[tableName];
+      if (!table?.hook) continue;
+
+      table.hook('creating', (primKey: any, obj: any) => {
+        if (this.seedingActive) return;
+        const recordId = String(primKey);
+        const diff = JSON.stringify({ after: obj }).slice(0, 2000);
+        queueMicrotask(() => {
+          this.auditLog
+            .add({
+              id: makeAuditId(),
+              table: tableName,
+              recordId,
+              action: 'create',
+              after: obj,
+              diff,
+              timestamp: new Date().toISOString(),
+            })
+            .catch((e) => console.warn('audit log write failed', e));
+        });
+      });
+
+      table.hook('updating', (mods: any, primKey: any, obj: any) => {
+        if (this.seedingActive) return;
+        const recordId = String(primKey);
+        const diff = JSON.stringify({ before: obj, mods }).slice(0, 2000);
+        queueMicrotask(() => {
+          this.auditLog
+            .add({
+              id: makeAuditId(),
+              table: tableName,
+              recordId,
+              action: 'update',
+              before: obj,
+              after: { ...obj, ...mods },
+              diff,
+              timestamp: new Date().toISOString(),
+            })
+            .catch((e) => console.warn('audit log write failed', e));
+        });
+      });
+
+      table.hook('deleting', (primKey: any, obj: any) => {
+        if (this.seedingActive) return;
+        const recordId = String(primKey);
+        const diff = JSON.stringify({ before: obj }).slice(0, 2000);
+        queueMicrotask(() => {
+          this.auditLog
+            .add({
+              id: makeAuditId(),
+              table: tableName,
+              recordId,
+              action: 'delete',
+              before: obj,
+              diff,
+              timestamp: new Date().toISOString(),
+            })
+            .catch((e) => console.warn('audit log write failed', e));
+        });
+      });
+    }
   }
 }
 

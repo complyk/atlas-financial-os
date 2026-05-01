@@ -6,8 +6,10 @@ import { Card, CardHeader, CardTitle, Tabs, Skeleton } from '../../components/ui
 import { CashFlowBar } from '../../components/charts/CashFlowBar';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency } from '../../lib/format';
+import { useAppStore } from '../../stores/useAppStore';
 
 export default function CashFlow() {
+  const { currency, locale } = useAppStore();
   const [period, setPeriod] = useState<'3m' | '6m' | '12m'>('6m');
   const months = period === '3m' ? 3 : period === '6m' ? 6 : 12;
 
@@ -35,9 +37,9 @@ export default function CashFlow() {
         <Tabs tabs={[{ id: '3m', label: '3M' }, { id: '6m', label: '6M' }, { id: '12m', label: '12M' }]} activeTab={period} onChange={p => setPeriod(p as any)} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card><CardTitle>Total Income</CardTitle><p className="font-mono text-xl font-bold text-positive mt-1">{formatCurrency(totalIncome, 'AED', 'en-AE', true)}</p></Card>
-        <Card><CardTitle>Total Expenses</CardTitle><p className="font-mono text-xl font-bold text-negative mt-1">{formatCurrency(totalExpenses, 'AED', 'en-AE', true)}</p></Card>
-        <Card><CardTitle>Net Surplus</CardTitle><p className={`font-mono text-xl font-bold mt-1 ${totalIncome - totalExpenses >= 0 ? 'text-positive' : 'text-negative'}`}>{formatCurrency(totalIncome - totalExpenses, 'AED', 'en-AE', true)}</p></Card>
+        <Card><CardTitle>Total Income</CardTitle><p className="font-mono text-xl font-bold text-positive mt-1">{formatCurrency(totalIncome, currency, locale, true)}</p></Card>
+        <Card><CardTitle>Total Expenses</CardTitle><p className="font-mono text-xl font-bold text-negative mt-1">{formatCurrency(totalExpenses, currency, locale, true)}</p></Card>
+        <Card><CardTitle>Net Surplus</CardTitle><p className={`font-mono text-xl font-bold mt-1 ${totalIncome - totalExpenses >= 0 ? 'text-positive' : 'text-negative'}`}>{formatCurrency(totalIncome - totalExpenses, currency, locale, true)}</p></Card>
         <Card><CardTitle>Avg Savings Rate</CardTitle><p className="font-mono text-xl font-bold text-accent mt-1">{totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(0) : 0}%</p></Card>
       </div>
       <Card>
