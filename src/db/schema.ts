@@ -158,6 +158,7 @@ export interface Transaction {
   notes?: string;
   isReviewed: boolean;
   tags?: string[];
+  importBatchId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -223,6 +224,7 @@ export interface Liability {
   accountId?: string; // linked account if tracked
   notes?: string;
   personId?: string;
+  includeInNetWorth?: boolean; // default true; users can hide a liability from NW
   createdAt: string;
   updatedAt: string;
 }

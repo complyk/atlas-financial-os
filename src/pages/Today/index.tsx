@@ -15,7 +15,8 @@ export default function Today() {
     const [accounts, assets, liabilities, goals, recurringRules, settings] = await Promise.all([
       db.accounts.filter(a => a.isActive).toArray(),
       db.assets.filter(a => a.includeInNetWorth).toArray(),
-      db.liabilities.toArray(),
+      // includeInNetWorth defaults to true when undefined for back-compat
+      db.liabilities.filter(l => l.includeInNetWorth !== false).toArray(),
       db.goals.filter(g => !g.isAchieved).toArray(),
       db.recurringRules.filter(r => r.isActive).toArray(),
       db.settings.get('singleton'),

@@ -13,6 +13,7 @@ import type {
   LifeEvent,
   Scenario,
   AppSettings,
+  MonthlySnapshot,
 } from './schema';
 
 // ─── ID helper ────────────────────────────────────────────────────────────────
@@ -1127,6 +1128,70 @@ export async function seedDatabase(): Promise<void> {
   };
 
   await db.settings.add(settings);
+
+  // ── Monthly Snapshots (13 months) ─────────────────────────────────────────
+  // Generate synthetic month-by-month net worth history ending at the current
+  // net worth, so the Today page sparkline has real data to render.
+  const currentLiquid = accounts
+    .filter(a => ['current', 'savings', 'cash'].includes(a.type))
+    .reduce((s, a) => s + a.balance, 0);
+  const currentInvestments = accounts
+    .filter(a => ['investment', 'isa_stocks'].includes(a.type))
+    .reduce((s, a) => s + a.balance, 0);
+  const currentPension = accounts
+    .filter(a => a.type === 'pension_dc' || a.type === 'pension_db')
+    .reduce((s, a) => s + a.balance, 0);
+  const currentAssets = assets
+    .filter(a => a.includeInNetWorth)
+    .reduce((s, a) => s + a.currentValue, 0);
+  const currentLiab = liabilities.reduce((s, l) => s + l.outstandingBalance, 0);
+  const currentNetWorth = currentLiquid + currentInvestments + currentPension + currentAssets - currentLiab;
+
+  // Walk back 12 months from "now": each prior month was the current value
+  // discounted by ~savings + investment growth, so the series ends at today.
+  // Use a roughly 1.0% monthly net-worth growth (mix of savings + market gain).
+  const monthlySnapshots: MonthlySnapshot[] = [];
+  const monthlyGrowth = 0.010;
+  const today = new Date();
+  for (let i = 12; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const yearMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    // Add small noise per month (+/- 0.4%) so the line isn't a perfect curve
+    const noise = 1 + (Math.random() - 0.5) * 0.008;
+    const factor = Math.pow(1 + monthlyGrowth, -i) * noise;
+    const nw = currentNetWorth * factor;
+    const liquid = currentLiquid * factor;
+    const inv = currentInvestments * factor;
+    const pen = currentPension * factor;
+    const liab = currentLiab * (1 + i * 0.002); // liabilities slightly higher in the past
+    const totalAssetsAtT = nw + liab;
+    monthlySnapshots.push({
+      id: gid(),
+      yearMonth,
+      netWorth: Math.round(nw),
+      liquidSavings: Math.round(liquid),
+      investments: Math.round(inv),
+      pension: Math.round(pen),
+      totalLiabilities: Math.round(liab),
+      totalAssets: Math.round(totalAssetsAtT),
+      totalIncome: 57000, // 35k + 22k household monthly
+      totalExpenses: 42000,
+      savingsRate: 0.26,
+      createdAt: ts,
+    });
+  }
+  // Ensure the most recent snapshot exactly matches today's net worth
+  if (monthlySnapshots.length > 0) {
+    const last = monthlySnapshots[monthlySnapshots.length - 1];
+    last.netWorth = Math.round(currentNetWorth);
+    last.liquidSavings = Math.round(currentLiquid);
+    last.investments = Math.round(currentInvestments);
+    last.pension = Math.round(currentPension);
+    last.totalLiabilities = Math.round(currentLiab);
+    last.totalAssets = Math.round(currentLiquid + currentInvestments + currentPension + currentAssets);
+  }
+
+  await db.monthlySnapshots.bulkAdd(monthlySnapshots);
 }
 
 // ─── Check and seed ───────────────────────────────────────────────────────────

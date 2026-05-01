@@ -27,7 +27,7 @@ export interface RecommendationOutput {
 export const RECOMMENDATION_RULES: RecommendationRule[] = [
   {
     id: 'idle_cash',
-    title: 'Idle cash earning below inflation',
+    title: 'Idle cash earning below top UAE rates',
     priority: 'high',
     evaluate({ accounts, monthlyExpenses }) {
       const savingsAccounts = accounts.filter(a => a.type === 'savings' && a.isActive);
@@ -40,44 +40,58 @@ export const RECOMMENDATION_RULES: RecommendationRule[] = [
       const totalIdle = lowRateAccounts.reduce((s, a) => s + a.balance, 0);
       const avgRate =
         lowRateAccounts.reduce((s, a) => s + (a.interestRate ?? 0), 0) / lowRateAccounts.length;
-      const annualValue = Math.round(totalIdle * (0.045 - avgRate));
+      // UAE-realistic top easy-access savings rate (Wio, Mashreq Neo, ADIB Smart Saver)
+      const benchmarkRate = 0.04;
+      const annualValue = Math.round(totalIdle * (benchmarkRate - avgRate));
       return {
-        title: 'Idle cash earning below inflation',
-        body: `£${totalIdle.toLocaleString()} in savings is earning just ${(avgRate * 100).toFixed(1)}% — below the current best easy-access rate of ~4.5%. Moving to a higher-rate account could earn an extra ~£${annualValue.toLocaleString()} per year.`,
+        title: 'Idle cash earning below top UAE rates',
+        body: `AED ${totalIdle.toLocaleString()} in savings is earning just ${(avgRate * 100).toFixed(1)}% — below the top UAE easy-access rate of ~4.0% (Wio, Mashreq Neo, ADIB Smart Saver). Moving to a higher-rate account could earn an extra ~AED ${annualValue.toLocaleString()} per year.`,
         estimatedAnnualValue: annualValue,
         priority: 'high',
       };
     },
   },
   {
-    id: 'isa_allowance',
-    title: 'ISA allowance not fully used',
-    priority: 'high',
-    evaluate({ accounts, settings }) {
-      const isaAccounts = accounts.filter(
-        a => (a.type === 'isa_cash' || a.type === 'isa_stocks') && a.isActive,
+    id: 'fx_concentration',
+    title: 'High AED concentration in liquid assets',
+    priority: 'medium',
+    evaluate({ accounts }) {
+      const liquidAccounts = accounts.filter(
+        a => a.isActive && ['current', 'savings', 'cash'].includes(a.type),
       );
-      const totalISA = isaAccounts.reduce((s, a) => s + a.balance, 0);
-      const annualAllowance = 20000;
-      const taxYearStart = new Date();
-      taxYearStart.setMonth(3);
-      taxYearStart.setDate(6); // April 6
-      if (taxYearStart > new Date()) taxYearStart.setFullYear(taxYearStart.getFullYear() - 1);
-      const today = new Date();
-      const yearEnd = new Date(taxYearStart.getFullYear() + 1, 3, 5);
-      const daysLeft = Math.ceil((yearEnd.getTime() - today.getTime()) / 86400000);
-      const headroom = Math.max(0, annualAllowance - (totalISA > annualAllowance ? annualAllowance : 0));
-      if (headroom < 1000 || daysLeft < 30) return null;
-      const annualValue = Math.round(
-        headroom *
-          settings.projection.effectiveTaxRate *
-          settings.projection.investmentReturnRealAnnual,
-      );
+      const totalLiquid = liquidAccounts.reduce((s, a) => s + a.balance, 0);
+      if (totalLiquid <= 100000) return null;
+      const aedLiquid = liquidAccounts
+        .filter(a => (a.currency ?? 'AED') === 'AED')
+        .reduce((s, a) => s + a.balance, 0);
+      const aedShare = aedLiquid / totalLiquid;
+      if (aedShare <= 0.7) return null;
+      const targetUSD = Math.round(totalLiquid * 0.25);
       return {
-        title: 'ISA allowance not fully used',
-        body: `You have £${headroom.toLocaleString()} of ISA allowance remaining with ${daysLeft} days left in the tax year. Contributing now shelters future gains from tax.`,
-        estimatedAnnualValue: annualValue,
-        priority: 'high',
+        title: 'High AED concentration in liquid assets',
+        body: `${(aedShare * 100).toFixed(0)}% of your liquid AED ${Math.round(totalLiquid).toLocaleString()} is held in AED. The dirham is pegged to the USD, but holding everything in one currency leaves you exposed to imported inflation and limits flexibility if you ever leave the UAE. Consider diversifying ~AED ${targetUSD.toLocaleString()} into USD or EUR multi-currency accounts.`,
+        priority: 'medium',
+      };
+    },
+  },
+  {
+    id: 'gratuity_planning',
+    title: 'Supplement end-of-service gratuity',
+    priority: 'medium',
+    evaluate({ accounts, settings }) {
+      // If primary income exists but there's no DC pension/retirement vehicle,
+      // gratuity alone is unlikely to fund retirement.
+      if (!settings.primaryIncome || settings.primaryIncome <= 0) return null;
+      const hasPension = accounts.some(
+        a => a.isActive && (a.type === 'pension_dc' || a.type === 'pension_db'),
+      );
+      const hasInvestment = accounts.some(a => a.isActive && a.type === 'investment');
+      if (hasPension && hasInvestment) return null;
+      const monthlyTarget = Math.round((settings.primaryIncome * 0.10) / 12);
+      return {
+        title: 'Supplement end-of-service gratuity',
+        body: `UAE end-of-service gratuity caps at ~2 years of basic salary regardless of tenure — far below what you need for retirement. ${hasPension ? 'Consider adding a private investment account' : 'You currently have no dedicated retirement vehicle'}. Aim to contribute ~AED ${monthlyTarget.toLocaleString()}/month (≈10% of gross income) into an offshore brokerage or DIFC pension scheme.`,
+        priority: 'medium',
       };
     },
   },
@@ -102,7 +116,7 @@ export const RECOMMENDATION_RULES: RecommendationRule[] = [
       );
       return {
         title: 'Overpay mortgage to save interest',
-        body: `Overpaying £${Math.round(monthlyOverpay).toLocaleString()}/month could save ~£${interestSaved.toLocaleString()} in total interest and cut years off your mortgage term.`,
+        body: `Overpaying AED ${Math.round(monthlyOverpay).toLocaleString()}/month could save ~AED ${interestSaved.toLocaleString()} in total interest and cut years off your mortgage term.`,
         estimatedAnnualValue: Math.round(monthlyOverpay * mortgage.interestRate),
         priority: 'medium',
       };
@@ -110,17 +124,17 @@ export const RECOMMENDATION_RULES: RecommendationRule[] = [
   },
   {
     id: 'emergency_fund_low',
-    title: 'Emergency fund below 3 months',
+    title: 'Emergency fund below 6 months',
     priority: 'high',
     evaluate({ goals, monthlyExpenses }) {
       const efGoal = goals.find(g => g.type === 'emergency_fund');
       if (!efGoal) return null;
       const coverage = efGoal.currentAmount / Math.max(monthlyExpenses, 1);
-      if (coverage >= 3) return null;
-      const gap = monthlyExpenses * 3 - efGoal.currentAmount;
+      if (coverage >= 6) return null;
+      const gap = monthlyExpenses * 6 - efGoal.currentAmount;
       return {
-        title: 'Emergency fund below 3 months',
-        body: `Your emergency fund covers ${coverage.toFixed(1)} months of expenses. Financial advisors recommend at least 3 months. Top up by £${Math.round(gap).toLocaleString()} to reach this target.`,
+        title: 'Emergency fund below 6 months',
+        body: `Your emergency fund covers ${coverage.toFixed(1)} months of expenses. The UAE has no unemployment benefit or welfare safety net, so 6 months of expenses is a more prudent buffer than the typical 3. Top up by AED ${Math.round(gap).toLocaleString()} to reach this target.`,
         priority: 'high',
       };
     },
@@ -136,7 +150,7 @@ export const RECOMMENDATION_RULES: RecommendationRule[] = [
       const gap = (match - contrib) * settings.primaryIncome * 12;
       return {
         title: 'Leaving employer match on table',
-        body: `Your pension contribution rate (${(contrib * 100).toFixed(0)}%) is below your employer match rate (${(match * 100).toFixed(0)}%). Increasing contributions to ${(match * 100).toFixed(0)}% would unlock an extra £${Math.round(gap).toLocaleString()}/year in free employer contributions.`,
+        body: `Your pension contribution rate (${(contrib * 100).toFixed(0)}%) is below your employer match rate (${(match * 100).toFixed(0)}%). Increasing contributions to ${(match * 100).toFixed(0)}% would unlock an extra AED ${Math.round(gap).toLocaleString()}/year in free employer contributions.`,
         estimatedAnnualValue: gap,
         priority: 'high',
       };
@@ -165,7 +179,7 @@ export const RECOMMENDATION_RULES: RecommendationRule[] = [
       const needed = Math.ceil((goal.targetAmount - goal.currentAmount) / monthsLeft);
       return {
         title: `Goal off track: ${goal.name}`,
-        body: `"${goal.name}" needs £${needed.toLocaleString()}/month but only £${goal.monthlyContribution.toLocaleString()}/month is allocated. Consider increasing contributions or extending the deadline.`,
+        body: `"${goal.name}" needs AED ${needed.toLocaleString()}/month but only AED ${goal.monthlyContribution.toLocaleString()}/month is allocated. Consider increasing contributions or extending the deadline.`,
         priority: 'medium',
       };
     },
@@ -183,7 +197,7 @@ export const RECOMMENDATION_RULES: RecommendationRule[] = [
       );
       return {
         title: 'High-interest debt detected',
-        body: `You have £${highRate.reduce((s, l) => s + l.outstandingBalance, 0).toLocaleString()} in high-rate debt (above 8%). This costs ~£${Math.round(totalCost).toLocaleString()}/year in interest. Paying this down first maximises net worth.`,
+        body: `You have AED ${highRate.reduce((s, l) => s + l.outstandingBalance, 0).toLocaleString()} in high-rate debt (above 8%). This costs ~AED ${Math.round(totalCost).toLocaleString()}/year in interest. Paying this down first maximises net worth.`,
         estimatedAnnualValue: Math.round(totalCost),
         priority: 'high',
       };

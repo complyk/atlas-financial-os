@@ -366,10 +366,23 @@ export function runProjection(input: ProjectionInput): ProjectionResult {
   const basePath = runDeterministicPath(input);
 
   // Run Monte Carlo
+  // Use log-normal returns to avoid extreme right-tail outliers from compounding
+  // a normal-distributed annual return over 50+ years (which can produce absurd
+  // values in the trillions). Box-Muller draws the log-return; convert with exp.
+  //
+  // Each simulated path holds its drawn annual return constant for the whole
+  // horizon, so a single outlier draw compounds for 50+ years. To keep the
+  // long-horizon p95 realistic (no 50-year backtest has exceeded ~12% CAGR),
+  // we clamp the realized annual return to roughly +/- 2 std devs in real
+  // long-run terms: [-0.30, +0.18]. This preserves a wide fan while preventing
+  // the chart Y-axis from blowing up into trillions.
   const allPaths: MonthlyDataPoint[][] = [basePath];
   for (let i = 0; i < MONTE_CARLO_RUNS; i++) {
-    const annualReturn = boxMuller(RETURN_MEAN, RETURN_STD);
-    const path = runDeterministicPath(input, annualReturn);
+    const logRet = boxMuller(RETURN_MEAN - 0.5 * RETURN_STD * RETURN_STD, RETURN_STD);
+    let annualReturnSample = Math.exp(logRet) - 1;
+    if (annualReturnSample > 0.18) annualReturnSample = 0.18;
+    if (annualReturnSample < -0.30) annualReturnSample = -0.30;
+    const path = runDeterministicPath(input, annualReturnSample);
     allPaths.push(path);
   }
 

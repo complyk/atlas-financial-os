@@ -31,8 +31,8 @@ export function FanChart({ data, height = 340 }: FanChartProps) {
           ))}
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-        <XAxis dataKey="date" tickFormatter={d => { try { return format(parseISO(d + '-01'), 'yyyy'); } catch { return d; } }} tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} interval={23} />
-        <YAxis tickFormatter={v => formatCompact(v)} tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} width={64} />
+        <XAxis dataKey="date" tickFormatter={d => { try { return format(parseISO(d + '-01'), 'yyyy'); } catch { return d; } }} tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={48} />
+        <YAxis tickFormatter={v => `${currency} ${formatCompact(v)}`} tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} width={84} tickCount={6} />
         <Tooltip
           formatter={(v: number, name: string) => {
             const labels: Record<string,string> = { p5: 'P5', p5_25: 'P5–P25', p25_50: 'P25–P50', p50_75: 'P50–P75', p75_95: 'P75–P95', p50: 'Median' };
