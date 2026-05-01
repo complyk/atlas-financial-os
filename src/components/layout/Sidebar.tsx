@@ -89,8 +89,11 @@ export function Sidebar() {
               <NavLink
                 key={item.to} to={item.to} end={item.end}
                 className={({ isActive }) => cn(
-                  'flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors duration-150 group',
-                  isActive ? 'bg-accent-light text-accent font-medium' : 'text-text-secondary hover:bg-surface-raised hover:text-text-primary'
+                  'relative flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors duration-150 group',
+                  'before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:rounded-r-full before:bg-accent before:transition-all before:duration-200',
+                  isActive
+                    ? 'bg-surface-raised/60 text-text-primary font-semibold before:h-5 before:opacity-100'
+                    : 'text-text-secondary hover:bg-surface-raised hover:text-text-primary before:h-0 before:opacity-0'
                 )}
                 title={collapsed ? item.label : undefined}
               >

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type Asset, type AssetType } from '../../db/schema';
-import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge } from '../../components/ui';
+import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge, EditableCurrency } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency } from '../../lib/format';
 import { generateId } from '../../lib/utils';
@@ -90,7 +90,17 @@ export default function Assets() {
                     <p className="text-sm font-semibold text-text-primary">{asset.name}</p>
                     {asset.address && <p className="text-xs text-text-tertiary truncate">{asset.address}</p>}
                   </div>
-                  <p className="font-mono text-xl font-bold text-text-primary">{formatCurrency(asset.currentValue, asset.currency || 'AED', 'en-AE', true)}</p>
+                  <EditableCurrency
+                    value={asset.currentValue}
+                    currency={asset.currency || 'AED'}
+                    size="lg"
+                    align="left"
+                    compact
+                    ariaLabel={`Edit value for ${asset.name}`}
+                    onSave={async (v) => {
+                      await db.assets.update(asset.id, { currentValue: v, updatedAt: new Date().toISOString() } as Partial<Asset>);
+                    }}
+                  />
                   {gain !== null && gainPct !== null && (
                     <p className={`text-xs font-mono ${gain >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {gain >= 0 ? '+' : ''}{formatCurrency(gain, 'AED', 'en-AE', true)} ({gain >= 0 ? '+' : ''}{(gainPct * 100).toFixed(1)}%)

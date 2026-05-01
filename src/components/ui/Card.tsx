@@ -9,9 +9,9 @@ export function Card({ className, hover, padded = true, children, ...props }: Ca
   return (
     <div
       className={cn(
-        'bg-surface rounded-2xl border border-border shadow-card dark:shadow-card-dark',
-        padded && 'p-5',
-        hover && 'cursor-pointer transition-shadow duration-150 hover:shadow-md',
+        'bg-surface rounded-2xl border border-border shadow-card dark:shadow-card-dark transition-all duration-200 ease-out',
+        padded && 'p-6',
+        hover && 'cursor-pointer hover:shadow-md hover:scale-[1.005] hover:-translate-y-px',
         className
       )}
       {...props}

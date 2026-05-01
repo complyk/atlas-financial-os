@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type Account, type AccountType } from '../../db/schema';
-import { Card, Badge, Button, Modal, Input, Select, Toggle, NumberInput, EmptyState, Skeleton, ConfirmDialog } from '../../components/ui';
+import { Card, Badge, Button, Modal, Input, Select, Toggle, NumberInput, EmptyState, Skeleton, ConfirmDialog, EditableCurrency } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
-import { formatCurrency } from '../../lib/format';
 import { generateId } from '../../lib/utils';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,7 +53,17 @@ function AccountCard({ account, onEdit, onDelete }: { account: Account; onEdit: 
         <p className="text-xs text-text-tertiary">{account.provider}</p>
       </div>
       <div className="flex items-end justify-between">
-        <p className="font-mono text-xl font-bold text-text-primary tabular-nums">{formatCurrency(account.balance, account.currency || 'AED', 'en-AE', true)}</p>
+        <EditableCurrency
+          value={account.balance}
+          currency={account.currency || 'AED'}
+          size="lg"
+          align="left"
+          compact
+          ariaLabel={`Edit balance for ${account.name}`}
+          onSave={async (v) => {
+            await db.accounts.update(account.id, { balance: v, updatedAt: new Date().toISOString() } as Partial<Account>);
+          }}
+        />
         <Badge variant="default">{ACCOUNT_TYPE_LABELS[account.type]}</Badge>
       </div>
       {account.interestRate && <p className="text-xs text-text-tertiary">{(account.interestRate * 100).toFixed(2)}% p.a.</p>}

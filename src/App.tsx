@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sidebar } from './components/layout/Sidebar';
 import { MobileNav } from './components/layout/MobileNav';
+import { QuickUpdatePanel } from './components/shared/QuickUpdatePanel';
 import { useAppStore } from './stores/useAppStore';
 
 // Lazy load pages
@@ -88,7 +89,9 @@ function AnimatedRoutes() {
 }
 
 export default function App() {
-  const { resolveTheme } = useAppStore();
+  const resolveTheme = useAppStore((s) => s.resolveTheme);
+  const quickUpdateOpen = useAppStore((s) => s.quickUpdateOpen);
+  const setQuickUpdateOpen = useAppStore((s) => s.setQuickUpdateOpen);
   useEffect(() => {
     resolveTheme();
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -105,6 +108,10 @@ export default function App() {
           <MobileNav />
         </div>
       </div>
+      <QuickUpdatePanel
+        open={quickUpdateOpen}
+        onClose={() => setQuickUpdateOpen(false)}
+      />
     </BrowserRouter>
   );
 }

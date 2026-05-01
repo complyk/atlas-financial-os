@@ -10,14 +10,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', loading, className, children, disabled, ...props }, ref) => {
     const base =
-      'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50 disabled:cursor-not-allowed';
+      'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed will-change-transform';
     const variants = {
-      primary: 'bg-accent text-white hover:opacity-90 active:scale-[0.98]',
+      primary:
+        'bg-gradient-to-b from-accent to-accent text-white shadow-sm hover:shadow-md hover:brightness-110 hover:-translate-y-px active:translate-y-0 active:scale-[0.98]',
       secondary:
-        'bg-surface-raised text-text-primary border border-border hover:bg-border active:scale-[0.98]',
+        'bg-surface-raised text-text-primary border border-border hover:bg-border hover:-translate-y-px active:translate-y-0 active:scale-[0.98]',
       ghost:
         'text-text-secondary hover:bg-surface-raised hover:text-text-primary active:scale-[0.98]',
-      danger: 'bg-negative text-white hover:opacity-90 active:scale-[0.98]',
+      danger:
+        'bg-gradient-to-b from-negative to-negative text-white shadow-sm hover:shadow-md hover:brightness-110 hover:-translate-y-px active:translate-y-0 active:scale-[0.98]',
     };
     const sizes = {
       sm: 'px-3 py-1.5 text-sm gap-1.5',

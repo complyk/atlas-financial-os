@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type Liability } from '../../db/schema';
-import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog } from '../../components/ui';
+import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, EditableCurrency } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { generateId } from '../../lib/utils';
@@ -88,7 +88,17 @@ export default function Liabilities() {
                         {l.endDate && <p className="text-xs text-text-tertiary">Ends {formatDate(l.endDate)}</p>}
                       </div>
                       <div className="flex items-center gap-2">
-                        <p className="font-mono text-sm font-semibold text-negative">{formatCurrency(l.outstandingBalance, 'AED', 'en-AE', true)}</p>
+                        <EditableCurrency
+                          value={l.outstandingBalance}
+                          size="sm"
+                          align="right"
+                          compact
+                          ariaLabel={`Edit outstanding balance for ${l.name}`}
+                          className="text-negative"
+                          onSave={async (v) => {
+                            await db.liabilities.update(l.id, { outstandingBalance: v, updatedAt: new Date().toISOString() } as Partial<Liability>);
+                          }}
+                        />
                         <Button variant="ghost" size="sm" onClick={() => setEditLiability(l)}><Edit2 size={13} /></Button>
                         <Button variant="ghost" size="sm" onClick={() => setDeleteId(l.id)}><Trash2 size={13} /></Button>
                       </div>

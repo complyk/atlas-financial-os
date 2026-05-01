@@ -49,6 +49,11 @@
 
 * { box-sizing: border-box; }
 
+html {
+  /* Smooth theme switches without retriggering on every layout change. */
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Geist', sans-serif;
@@ -56,6 +61,12 @@ body {
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 200ms ease, color 200ms ease;
+  background-image:
+    radial-gradient(at 10% -10%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0px, transparent 45%),
+    radial-gradient(at 95% 0%, color-mix(in srgb, var(--color-chart-2) 6%, transparent) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, color-mix(in srgb, var(--color-chart-4) 5%, transparent) 0px, transparent 55%);
+  background-attachment: fixed;
 }
 
 .font-numeric {
@@ -70,10 +81,17 @@ body {
   }
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 150ms ease;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 .sr-only {
   position: absolute;

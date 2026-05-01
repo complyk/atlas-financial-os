@@ -11,3 +11,5 @@ export { NumberInput } from './NumberInput';
 export { Tabs } from './Tabs';
 export { Tooltip } from './Tooltip';
 export { ConfirmDialog } from './ConfirmDialog';
+export { EditableCurrency } from './EditableCurrency';
+export { MoneyDisplay } from './MoneyDisplay';

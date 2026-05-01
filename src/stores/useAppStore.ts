@@ -12,10 +12,12 @@ interface AppState {
   secondaryCurrency: string;
   locale: string;
   sidebarCollapsed: boolean;
+  quickUpdateOpen: boolean;
   setTheme: (t: Theme) => void;
   setDensity: (d: Density) => void;
   setCurrency: (c: string) => void;
   setSidebarCollapsed: (v: boolean) => void;
+  setQuickUpdateOpen: (v: boolean) => void;
   resolveTheme: () => void;
 }
 
@@ -29,6 +31,7 @@ export const useAppStore = create<AppState>()(
       secondaryCurrency: 'USD',
       locale: 'en-AE',
       sidebarCollapsed: false,
+      quickUpdateOpen: false,
       setTheme: (theme) => {
         set({ theme });
         get().resolveTheme();
@@ -36,6 +39,7 @@ export const useAppStore = create<AppState>()(
       setDensity: (density) => set({ density }),
       setCurrency: (currency) => set({ currency }),
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
+      setQuickUpdateOpen: (v) => set({ quickUpdateOpen: v }),
       resolveTheme: () => {
         const { theme } = get();
         let resolved: 'light' | 'dark';

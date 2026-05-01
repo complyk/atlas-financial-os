@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { db, type Goal, type GoalPriority } from '../../db/schema';
-import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge } from '../../components/ui';
+import { Card, Button, Modal, Input, Select, NumberInput, EmptyState, Skeleton, ConfirmDialog, Badge, EditableCurrency } from '../../components/ui';
 import { GoalGauge } from '../../components/charts/GoalGauge';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -106,9 +106,34 @@ export default function Goals() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs"><span className="text-text-tertiary">Current</span><span className="font-mono font-semibold text-text-primary">{formatCurrency(goal.currentAmount, 'AED', 'en-AE', true)}</span></div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-text-tertiary">Current</span>
+                    <EditableCurrency
+                      value={goal.currentAmount}
+                      size="sm"
+                      align="right"
+                      compact
+                      ariaLabel={`Edit current amount for ${goal.name}`}
+                      onSave={async (v) => {
+                        await db.goals.update(goal.id, { currentAmount: v, updatedAt: new Date().toISOString() } as Partial<Goal>);
+                      }}
+                    />
+                  </div>
                   <div className="flex justify-between text-xs"><span className="text-text-tertiary">Target</span><span className="font-mono font-semibold text-text-primary">{formatCurrency(goal.targetAmount, 'AED', 'en-AE', true)}</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-text-tertiary">Monthly</span><span className="font-mono text-accent">{formatCurrency(goal.monthlyContribution, 'AED', 'en-AE', true)}</span></div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-text-tertiary">Monthly</span>
+                    <EditableCurrency
+                      value={goal.monthlyContribution}
+                      size="sm"
+                      align="right"
+                      compact
+                      className="text-accent"
+                      ariaLabel={`Edit monthly contribution for ${goal.name}`}
+                      onSave={async (v) => {
+                        await db.goals.update(goal.id, { monthlyContribution: v, updatedAt: new Date().toISOString() } as Partial<Goal>);
+                      }}
+                    />
+                  </div>
                   {goal.targetDate && <div className="flex justify-between text-xs"><span className="text-text-tertiary">Target</span><span className="text-text-secondary">{formatDate(goal.targetDate)}</span></div>}
                   {monthsLeft !== null && <div className="flex justify-between text-xs"><span className="text-text-tertiary">ETA</span><span className="text-text-secondary">{monthsLeft > 0 ? `~${monthsLeft}mo` : 'Achieved!'}</span></div>}
                 </div>

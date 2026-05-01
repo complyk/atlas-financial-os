@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Check, X, Pencil } from 'lucide-react';
-import { formatCurrency } from '../../lib/format';
 import { useAppStore } from '../../stores/useAppStore';
 import { cn } from '../../lib/utils';
+import { MoneyDisplay } from './MoneyDisplay';
 
 interface EditableCurrencyProps {
   value: number;
@@ -25,7 +25,7 @@ export function EditableCurrency({
   compact,
   ariaLabel,
 }: EditableCurrencyProps) {
-  const { currency: appCurrency, locale } = useAppStore();
+  const { currency: appCurrency } = useAppStore();
   const cur = currency || appCurrency;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
@@ -120,7 +120,12 @@ export function EditableCurrency({
         className
       )}
     >
-      <span>{formatCurrency(value, cur, locale, compact)}</span>
+      <MoneyDisplay
+        value={value}
+        currency={cur}
+        size={size === 'xl' ? 'xl' : size === 'lg' ? 'lg' : size === 'sm' ? 'sm' : 'md'}
+        compact={compact}
+      />
       <Pencil
         size={11}
         className="opacity-0 group-hover:opacity-50 transition-opacity flex-shrink-0"
