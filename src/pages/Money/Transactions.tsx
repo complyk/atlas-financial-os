@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Upload } from 'lucide-react';
 import { db, type TransactionType } from '../../db/schema';
 import { Card, Button, Select, Badge, Modal, EmptyState, Skeleton } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
+import { ImportWizard } from '../../components/import/ImportWizard';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { generateId } from '../../lib/utils';
 import { useForm, Controller } from 'react-hook-form';
@@ -72,6 +73,7 @@ export default function Transactions() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all');
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   const allData = useLiveQuery(async () => {
     const [transactions, accounts, categories] = await Promise.all([
@@ -97,7 +99,12 @@ export default function Transactions() {
   }, [allData, search, typeFilter]);
 
   return (
-    <PageLayout actions={<Button onClick={() => setShowAdd(true)} size="sm"><Plus size={14} className="mr-1" /> Add</Button>}>
+    <PageLayout actions={
+      <div className="flex gap-2">
+        <Button onClick={() => setShowImport(true)} size="sm" variant="secondary"><Upload size={14} className="mr-1" /> Import CSV</Button>
+        <Button onClick={() => setShowAdd(true)} size="sm"><Plus size={14} className="mr-1" /> Add</Button>
+      </div>
+    }>
       <div className="flex gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 min-w-48">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
@@ -143,6 +150,7 @@ export default function Transactions() {
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Transaction">
         <TxFormComponent onClose={() => setShowAdd(false)} />
       </Modal>
+      <ImportWizard open={showImport} onClose={() => setShowImport(false)} />
     </PageLayout>
   );
 }
