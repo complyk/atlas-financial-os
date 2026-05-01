@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Download, Upload, Trash2 } from 'lucide-react';
+import { Download, Upload, Trash2, RotateCcw } from 'lucide-react';
 import { db } from '../../db/schema';
+import { seedDatabase } from '../../db/seed';
 import { Card, CardHeader, CardTitle, Button, ConfirmDialog } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 
 export default function Export() {
   const [importing, setImporting] = useState(false);
   const [showClear, setShowClear] = useState(false);
+  const [showReseed, setShowReseed] = useState(false);
+  const [reseeding, setReseeding] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
   const handleExport = async () => {
@@ -67,6 +70,23 @@ export default function Export() {
     window.location.reload();
   };
 
+  const handleReseed = async () => {
+    setReseeding(true);
+    try {
+      await Promise.all([
+        db.accounts.clear(), db.transactions.clear(), db.categories.clear(),
+        db.recurringRules.clear(), db.assets.clear(), db.liabilities.clear(),
+        db.insurancePolicies.clear(), db.investments.clear(), db.goals.clear(),
+        db.lifeEvents.clear(), db.scenarios.clear(), db.people.clear(),
+        db.settings.clear(), db.monthlySnapshots.clear(), db.auditLog.clear(),
+      ]);
+      await seedDatabase();
+      window.location.reload();
+    } finally {
+      setReseeding(false);
+    }
+  };
+
   return (
     <PageLayout>
       <div className="max-w-xl space-y-6">
@@ -86,6 +106,14 @@ export default function Export() {
           {importStatus && <p className={`mt-3 text-sm ${importStatus.includes('failed') ? 'text-negative' : 'text-positive'}`}>{importStatus}</p>}
         </Card>
 
+        <Card>
+          <CardHeader><CardTitle>Reset to Sample Data</CardTitle></CardHeader>
+          <p className="text-sm text-text-secondary mb-4">Wipe everything and re-load the bundled household seed (Kayne &amp; Sylvia, 28 months of historic snapshots, audit log notes from your spreadsheet). Useful if your local DB is from an older seed.</p>
+          <Button variant="secondary" onClick={() => setShowReseed(true)} disabled={reseeding}>
+            <RotateCcw size={14} className="mr-2" />{reseeding ? 'Reseeding…' : 'Reset to seed data'}
+          </Button>
+        </Card>
+
         <Card className="border-negative/30">
           <CardHeader><CardTitle>Danger Zone</CardTitle></CardHeader>
           <p className="text-sm text-text-secondary mb-4">Clear all data from this device. This action cannot be undone.</p>
@@ -102,6 +130,15 @@ export default function Export() {
         confirmLabel="Delete Everything"
         destructive
         requireTyping="DELETE ALL DATA"
+      />
+
+      <ConfirmDialog
+        open={showReseed}
+        onClose={() => setShowReseed(false)}
+        onConfirm={handleReseed}
+        title="Reset to seed data?"
+        message="This wipes your current data and reloads the seeded household with 28 months of history and audit-log notes from your spreadsheet (Bangkok, Zambia, Diligent Partners, Vancouver, etc.)."
+        confirmLabel="Reset and reseed"
       />
     </PageLayout>
   );
