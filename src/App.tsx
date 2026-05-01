@@ -11,6 +11,7 @@ const Today = lazy(() => import('./pages/Today/index'));
 const MoneyAccounts = lazy(() => import('./pages/Money/Accounts'));
 const MoneyTransactions = lazy(() => import('./pages/Money/Transactions'));
 const MoneyCashFlow = lazy(() => import('./pages/Money/CashFlow'));
+const MoneyBudgets = lazy(() => import('./pages/Money/Budgets'));
 const WealthIndex = lazy(() => import('./pages/Wealth/NetWorth'));
 const WealthInvestments = lazy(() => import('./pages/Wealth/Investments'));
 const WealthAssets = lazy(() => import('./pages/Wealth/Assets'));
@@ -31,16 +32,6 @@ const LibraryPeople = lazy(() => import('./pages/Library/People'));
 const LibraryAuditLog = lazy(() => import('./pages/Library/AuditLog'));
 const LibraryExport = lazy(() => import('./pages/Library/Export'));
 
-function ComingSoon({ name }: { name: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-8">
-      <div className="text-4xl mb-4">🚧</div>
-      <h2 className="text-lg font-semibold text-text-primary mb-2">{name}</h2>
-      <p className="text-sm text-text-secondary">This page is coming soon.</p>
-    </div>
-  );
-}
-
 const pageTransition = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
@@ -60,7 +51,7 @@ function AnimatedRoutes() {
             <Route path="/money" element={<MoneyAccounts />} />
             <Route path="/money/transactions" element={<MoneyTransactions />} />
             <Route path="/money/cashflow" element={<MoneyCashFlow />} />
-            <Route path="/money/budgets" element={<ComingSoon name="Budgets" />} />
+            <Route path="/money/budgets" element={<MoneyBudgets />} />
             <Route path="/wealth" element={<WealthIndex />} />
             <Route path="/wealth/investments" element={<WealthInvestments />} />
             <Route path="/wealth/assets" element={<WealthAssets />} />

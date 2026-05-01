@@ -14,7 +14,9 @@ import {
   type ImportableTx,
   type AmountSign,
 } from '../../lib/csvImport';
+import { extractPdfText, extractTransactions as extractPdfTxs } from '../../lib/pdfImport';
 import { batchMatch } from '../../lib/categoryMatcher';
+import { syncWorkbook, type XLSXSyncReport } from '../../lib/xlsxImport';
 
 interface ImportWizardProps {
   open: boolean;
@@ -56,12 +58,16 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
   const [decimalSeparator, setDecimalSeparator] = useState<'.' | ','>('.');
   const [amountSign, setAmountSign] = useState<AmountSign>('signed');
   const [bankName, setBankName] = useState<string | undefined>(undefined);
+  const [fileKind, setFileKind] = useState<'csv' | 'pdf'>('csv');
+  const [pdfTxs, setPdfTxs] = useState<ImportableTx[] | null>(null);
 
   const [rows, setRows] = useState<PreparedRow[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
+  const [xlsxReport, setXlsxReport] = useState<XLSXSyncReport | null>(null);
+  const [xlsxLoading, setXlsxLoading] = useState(false);
 
   const accounts = useLiveQuery(
     () => db.accounts.filter(a => a.isActive).toArray(),
@@ -84,9 +90,13 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
         setDecimalSeparator('.');
         setAmountSign('signed');
         setBankName(undefined);
+        setFileKind('csv');
+        setPdfTxs(null);
         setRows([]);
         setCompleted(false);
         setImportedCount(0);
+        setXlsxReport(null);
+        setXlsxLoading(false);
       }, 200);
       return () => clearTimeout(t);
     }
@@ -94,7 +104,50 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
 
   const handleParse = useCallback(async (f: File) => {
     setError(null);
+    const lower = f.name.toLowerCase();
+    const isXlsx = lower.endsWith('.xlsx') || lower.endsWith('.xls')
+      || f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || f.type === 'application/vnd.ms-excel';
+    const isPdf = lower.endsWith('.pdf') || f.type === 'application/pdf';
     try {
+      if (isXlsx) {
+        // XLSX skips the multi-step wizard — sync inline and surface a report.
+        setFile(f);
+        setXlsxLoading(true);
+        try {
+          const report = await syncWorkbook(f);
+          setXlsxReport(report);
+          setCompleted(true);
+        } catch (err) {
+          console.error(err);
+          setError('Failed to read the workbook. Make sure it has Monthly Reviews + Budget tabs.');
+        } finally {
+          setXlsxLoading(false);
+        }
+        return;
+      }
+      if (isPdf) {
+        const pages = await extractPdfText(f);
+        const extracted = extractPdfTxs(pages);
+        if (extracted.length === 0) {
+          setError('No transactions found in PDF. Try a different file or use CSV import.');
+          return;
+        }
+        const adapted: ImportableTx[] = extracted.map(t => ({
+          date: t.date,
+          description: t.description,
+          amount: t.amount,
+          type: t.type,
+          rawRow: { date: t.date, description: t.description, amount: String(t.amount) },
+        }));
+        setFile(f);
+        setFileKind('pdf');
+        setPdfTxs(adapted);
+        setParsed(null);
+        setStep(1);
+        return;
+      }
+      // CSV
       const text = await f.text();
       const result = parseCSV(text);
       if (result.headers.length === 0 || result.rows.length === 0) {
@@ -102,6 +155,8 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
         return;
       }
       setFile(f);
+      setFileKind('csv');
+      setPdfTxs(null);
       setParsed(result);
       const detected = detectFormat(result);
       setMapping({
@@ -120,15 +175,49 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
       setStep(1);
     } catch (e) {
       console.error(e);
-      setError('Failed to read the file. Please try again.');
+      setError(isPdf ? 'Failed to read PDF. The document may be image-based or password-protected.' : 'Failed to read the file. Please try again.');
     }
   }, []);
 
+  const buildPreparedRows = useCallback(async (importable: ImportableTx[]) => {
+    const matches = await batchMatch(importable.map(t => ({ description: t.description })));
+    const existing = accountId
+      ? await db.transactions.where('accountId').equals(accountId).toArray()
+      : [];
+    const existingKeys = new Set(
+      existing.map(t => `${t.date}|${t.description.toLowerCase()}|${t.amount.toFixed(2)}`),
+    );
+    return importable.map((tx, i) => {
+      const key = `${tx.date}|${tx.description.toLowerCase()}|${tx.amount.toFixed(2)}`;
+      const isDup = existingKeys.has(key);
+      return {
+        ...tx,
+        id: `tmp-${i}-${Math.random().toString(36).slice(2, 8)}`,
+        categoryId: matches[i]?.categoryId,
+        selected: !isDup,
+        isDuplicate: isDup,
+      } as PreparedRow;
+    });
+  }, [accountId]);
+
   const handlePreview = useCallback(async () => {
-    if (!parsed || !mapping) return;
     setError(null);
     setLoadingPreview(true);
     try {
+      // PDF flow — skip column mapping, use pre-extracted txs.
+      if (fileKind === 'pdf') {
+        if (!pdfTxs || pdfTxs.length === 0) {
+          setError('No transactions extracted from PDF.');
+          setLoadingPreview(false);
+          return;
+        }
+        const prepared = await buildPreparedRows(pdfTxs);
+        setRows(prepared);
+        setStep(3);
+        return;
+      }
+      // CSV flow
+      if (!parsed || !mapping) return;
       const valid = mapping.date && mapping.description && (
         amountSign === 'signed' ? !!mapping.amount : (!!mapping.credit && !!mapping.debit)
       );
@@ -137,36 +226,13 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
         setLoadingPreview(false);
         return;
       }
-
       const importable = applyMapping(parsed, mapping, dateFormat, decimalSeparator, amountSign);
       if (importable.length === 0) {
         setError('No rows could be parsed. Check your column mapping and date format.');
         setLoadingPreview(false);
         return;
       }
-
-      // Auto-categorise
-      const matches = await batchMatch(importable.map(t => ({ description: t.description })));
-
-      // Duplicate detection — fetch existing transactions for this account.
-      const existing = accountId
-        ? await db.transactions.where('accountId').equals(accountId).toArray()
-        : [];
-      const existingKeys = new Set(
-        existing.map(t => `${t.date}|${t.description.toLowerCase()}|${t.amount.toFixed(2)}`),
-      );
-
-      const prepared: PreparedRow[] = importable.map((tx, i) => {
-        const key = `${tx.date}|${tx.description.toLowerCase()}|${tx.amount.toFixed(2)}`;
-        const isDup = existingKeys.has(key);
-        return {
-          ...tx,
-          id: `tmp-${i}-${Math.random().toString(36).slice(2, 8)}`,
-          categoryId: matches[i]?.categoryId,
-          selected: !isDup,
-          isDuplicate: isDup,
-        };
-      });
+      const prepared = await buildPreparedRows(importable);
       setRows(prepared);
       setStep(3);
     } catch (e) {
@@ -175,7 +241,7 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
     } finally {
       setLoadingPreview(false);
     }
-  }, [parsed, mapping, dateFormat, decimalSeparator, amountSign, accountId]);
+  }, [fileKind, pdfTxs, parsed, mapping, dateFormat, decimalSeparator, amountSign, buildPreparedRows]);
 
   const handleCommit = useCallback(async () => {
     if (!accountId) return;
@@ -233,7 +299,7 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
   }, [accountId, rows]);
 
   const canNext = useMemo(() => {
-    if (step === 0) return !!parsed;
+    if (step === 0) return fileKind === 'pdf' ? !!pdfTxs : !!parsed;
     if (step === 1) return !!accountId;
     if (step === 2) {
       if (!mapping) return false;
@@ -243,7 +309,7 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
     }
     if (step === 3) return rows.some(r => r.selected);
     return false;
-  }, [step, parsed, accountId, mapping, amountSign, rows]);
+  }, [step, fileKind, pdfTxs, parsed, accountId, mapping, amountSign, rows]);
 
   const selectedAccount = (accounts ?? []).find(a => a.id === accountId);
 
@@ -255,7 +321,16 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
       size="xl"
     >
       <div className="space-y-5">
-        {!completed && <Stepper step={step} />}
+        {!completed && !xlsxLoading && !xlsxReport && <Stepper step={step} />}
+
+        {xlsxLoading && (
+          <div className="flex flex-col items-center text-center py-8 gap-3">
+            <div className="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center animate-pulse">
+              <FileText size={24} />
+            </div>
+            <p className="text-sm text-text-secondary">Reading {file?.name}…</p>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-negative/10 text-negative text-sm">
@@ -265,7 +340,7 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
         )}
 
         {/* Step 0: Upload */}
-        {step === 0 && !completed && (
+        {step === 0 && !completed && !xlsxLoading && (
           <UploadStep onFile={handleParse} bankName={bankName} parsedRows={parsed?.rows.length ?? 0} fileName={file?.name} />
         )}
 
@@ -305,8 +380,8 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
           />
         )}
 
-        {/* Step 4: Done */}
-        {completed && (
+        {/* Step 4: Done — CSV/PDF flow */}
+        {completed && !xlsxReport && (
           <div className="flex flex-col items-center text-center py-8 gap-3">
             <div className="w-12 h-12 rounded-full bg-positive/10 text-positive flex items-center justify-center">
               <CheckCircle2 size={24} />
@@ -322,6 +397,37 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
           </div>
         )}
 
+        {/* XLSX sync report */}
+        {completed && xlsxReport && (
+          <div className="flex flex-col items-center text-center py-6 gap-3">
+            <div className="w-12 h-12 rounded-full bg-positive/10 text-positive flex items-center justify-center">
+              <CheckCircle2 size={24} />
+            </div>
+            <h3 className="text-base font-semibold text-text-primary">
+              Workbook synced
+            </h3>
+            <p className="text-sm text-text-secondary">
+              {xlsxReport.monthsAdded} new {xlsxReport.monthsAdded === 1 ? 'month' : 'months'} · {xlsxReport.monthsUpdated} updated
+              {xlsxReport.goalsUpdated > 0 && ` · retirement target refreshed`}
+            </p>
+            {xlsxReport.retirementTargetAED && (
+              <p className="text-xs text-text-tertiary font-mono">
+                Retirement target: {formatCurrency(xlsxReport.retirementTargetAED, 'AED')}
+              </p>
+            )}
+            {xlsxReport.notes.length > 0 && (
+              <div className="w-full mt-2 text-left rounded-lg border border-border bg-surface-raised p-3 max-h-48 overflow-y-auto">
+                <p className="text-xs font-medium text-text-secondary mb-1">Carried-over notes</p>
+                <ul className="space-y-1 text-xs text-text-primary">
+                  {xlsxReport.notes.map((n, i) => (
+                    <li key={i} className="font-mono">{n}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <Button variant="ghost" onClick={onClose}>
@@ -331,13 +437,24 @@ export function ImportWizard({ open, onClose }: ImportWizardProps) {
           {!completed && (
             <div className="flex gap-2">
               {step > 0 && (
-                <Button variant="secondary" onClick={() => setStep(s => Math.max(0, s - 1))}>
+                <Button variant="secondary" onClick={() => {
+                  // Skip mapping step on the way back when importing a PDF
+                  if (step === 3 && fileKind === 'pdf') setStep(1);
+                  else setStep(s => Math.max(0, s - 1));
+                }}>
                   Back
                 </Button>
               )}
-              {step < 2 && (
-                <Button onClick={() => setStep(s => s + 1)} disabled={!canNext}>
-                  Next
+              {step === 0 && (
+                <Button onClick={() => setStep(1)} disabled={!canNext}>Next</Button>
+              )}
+              {step === 1 && (
+                <Button
+                  onClick={() => fileKind === 'pdf' ? handlePreview() : setStep(2)}
+                  disabled={!canNext}
+                  loading={fileKind === 'pdf' && loadingPreview}
+                >
+                  {fileKind === 'pdf' ? 'Preview' : 'Next'}
                 </Button>
               )}
               {step === 2 && (
@@ -428,15 +545,16 @@ function UploadStep({
           <Upload size={20} />
         </div>
         <p className="text-sm font-medium text-text-primary">
-          Drop CSV here or click to browse
+          Drop CSV, PDF or XLSX here, or click to browse
         </p>
         <p className="text-xs text-text-tertiary">
-          Supports Emirates NBD, Mashreq, ADCB, Revolut, Wise and most generic bank CSVs.
+          CSV / PDF: bank statements (Emirates NBD, Mashreq, Wise, etc.).<br />
+          XLSX: budget workbook with Monthly Reviews + Budget tabs.
         </p>
         <input
           ref={inputRef}
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.pdf,.xlsx,.xls,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           className="hidden"
           onChange={e => {
             const f = e.target.files?.[0];

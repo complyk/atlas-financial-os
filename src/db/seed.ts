@@ -5,7 +5,6 @@ import type {
   Category,
   Transaction,
   RecurringRule,
-  Asset,
   Liability,
   InsurancePolicy,
   Investment,
@@ -14,6 +13,7 @@ import type {
   Scenario,
   AppSettings,
   MonthlySnapshot,
+  AuditEntry,
 } from './schema';
 
 // ─── ID helper ────────────────────────────────────────────────────────────────
@@ -28,20 +28,49 @@ function now(): string {
   return new Date().toISOString();
 }
 
-// ─── Date helpers ─────────────────────────────────────────────────────────────
+// ─── Real history (Feb 2024 → May 2026) ───────────────────────────────────────
+// Pulled directly from Kayne's "💰 2026 Budget 💸.xlsx" — Monthly Reviews tab.
+// Numbers in AED. Comments come from spreadsheet annotations.
 
-function subtractMonths(months: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - months);
-  return d.toISOString().slice(0, 10);
+interface RealMonth {
+  month: string; // YYYY-MM
+  sylSave: number;
+  kayneSave: number;
+  total: number;
+  ccTotal: number;
+  comment: string | null;
 }
 
-function dateInMonth(monthsAgo: number, day: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - monthsAgo);
-  d.setDate(day);
-  return d.toISOString().slice(0, 10);
-}
+const REAL_HISTORY: RealMonth[] = [
+  { month: '2024-02', sylSave: 14000, kayneSave: 13058, total: 27058, ccTotal: 36423, comment: null },
+  { month: '2024-03', sylSave: 14000, kayneSave: 13058, total: 27058, ccTotal: 0, comment: 'Bangkok' },
+  { month: '2024-04', sylSave: 29539, kayneSave: 36792, total: 66331, ccTotal: 25603, comment: null },
+  { month: '2024-05', sylSave: 38039, kayneSave: 56034.12, total: 94073.12, ccTotal: 47384.44, comment: null },
+  { month: '2024-06', sylSave: 52157, kayneSave: 67012.59, total: 119169.59, ccTotal: 48602.89, comment: 'UK/USA' },
+  { month: '2024-07', sylSave: 62157, kayneSave: 77373.59, total: 139530.59, ccTotal: 61043, comment: 'Zambia' },
+  { month: '2024-08', sylSave: 76157, kayneSave: 89581.1, total: 165738.1, ccTotal: 62278, comment: null },
+  { month: '2024-09', sylSave: 84157, kayneSave: 109671.29, total: 193828.29, ccTotal: 63710.09, comment: 'Diligent Partners LLC' },
+  { month: '2024-10', sylSave: 94157, kayneSave: 120841.51, total: 214998.51, ccTotal: 64701, comment: null },
+  { month: '2024-11', sylSave: 94157, kayneSave: 141903.87, total: 236060.87, ccTotal: 62150, comment: 'Thai/Laos' },
+  { month: '2024-12', sylSave: 98472, kayneSave: 141922.82, total: 240394.82, ccTotal: 43912, comment: null },
+  { month: '2025-01', sylSave: 109822, kayneSave: 157437.82, total: 267259.82, ccTotal: 38608.99, comment: null },
+  { month: '2025-02', sylSave: 121822, kayneSave: 169437.82, total: 291259.82, ccTotal: 28871, comment: null },
+  { month: '2025-03', sylSave: 121822, kayneSave: 98060.2, total: 219882.2, ccTotal: 34000, comment: 'Villa move-in: T2 deposit + insurance + loan fee, apt 2-month penalty, villa deposit/broker/rent/DEWA connection/movers/AC fix, MG5 scratch, new mattress, balloons + flowers' },
+  { month: '2025-04', sylSave: 123414, kayneSave: 115560.2, total: 238974.2, ccTotal: 29704, comment: 'Baby things 7,900 + 11,000; table 1,499' },
+  { month: '2025-05', sylSave: 123414, kayneSave: 120560.2, total: 243974.2, ccTotal: 28922, comment: 'Dining chairs 6,500; Kyoto hotel 9,310' },
+  { month: '2025-06', sylSave: 130064, kayneSave: 171057, total: 301121, ccTotal: 26436, comment: null },
+  { month: '2025-07', sylSave: 137318, kayneSave: 184791.28, total: 322109.28, ccTotal: 4123, comment: null },
+  { month: '2025-08', sylSave: 147318, kayneSave: 202282.39, total: 349600.39, ccTotal: 24778.59, comment: 'Sana born — baby gear, bike, nanny' },
+  { month: '2025-09', sylSave: 147318, kayneSave: 200866, total: 348184, ccTotal: 0, comment: 'Sylvia visa, nanny visa, Sana visa, garden landscaping' },
+  { month: '2025-10', sylSave: 147318, kayneSave: 220366, total: 367684, ccTotal: 0, comment: 'Vancouver' },
+  { month: '2025-11', sylSave: 147318, kayneSave: 236671.59, total: 383989.59, ccTotal: 0, comment: null },
+  { month: '2025-12', sylSave: 147318, kayneSave: 252767.04, total: 400085.04, ccTotal: 0, comment: null },
+  { month: '2026-01', sylSave: 144618, kayneSave: 248780, total: 393398, ccTotal: 0, comment: null },
+  { month: '2026-02', sylSave: 144618, kayneSave: 233365.95, total: 377983.95, ccTotal: 14800, comment: 'Survival stuff, car license, insurance renewal, Sylvia course' },
+  { month: '2026-03', sylSave: 183618, kayneSave: 240261.95, total: 423879.95, ccTotal: 0, comment: null },
+  { month: '2026-04', sylSave: 183618, kayneSave: 253125.62, total: 436743.62, ccTotal: 0, comment: null },
+  { month: '2026-05', sylSave: 183618, kayneSave: 273121.29, total: 456739.29, ccTotal: 0, comment: null },
+];
 
 // ─── Seed function ────────────────────────────────────────────────────────────
 
@@ -50,16 +79,16 @@ export async function seedDatabase(): Promise<void> {
 
   // ── People ────────────────────────────────────────────────────────────────
 
-  const khalidId = gid();
-  const laraId = gid();
-  const adamId = gid();
+  const kayneId = gid();
+  const sylviaId = gid();
+  const sanaId = gid();
 
   const people: Person[] = [
     {
-      id: khalidId,
-      name: 'Khalid',
+      id: kayneId,
+      name: 'Kayne',
       role: 'primary',
-      dateOfBirth: '1990-03-15',
+      dateOfBirth: '1990-04-15',
       lifeExpectancy: 90,
       retirementAge: 60,
       statePensionAge: 60,
@@ -68,22 +97,22 @@ export async function seedDatabase(): Promise<void> {
       updatedAt: ts,
     },
     {
-      id: laraId,
-      name: 'Lara',
+      id: sylviaId,
+      name: 'Sylvia',
       role: 'secondary',
-      dateOfBirth: '1992-07-22',
+      dateOfBirth: '1992-06-01',
       lifeExpectancy: 92,
-      retirementAge: 55,
-      statePensionAge: 55,
+      retirementAge: 60,
+      statePensionAge: 60,
       statePensionWeekly: 0,
       createdAt: ts,
       updatedAt: ts,
     },
     {
-      id: adamId,
-      name: 'Adam',
+      id: sanaId,
+      name: 'Sana',
       role: 'child',
-      dateOfBirth: '2024-07-01',
+      dateOfBirth: '2025-08-15',
       createdAt: ts,
       updatedAt: ts,
     },
@@ -93,55 +122,69 @@ export async function seedDatabase(): Promise<void> {
 
   // ── Categories ────────────────────────────────────────────────────────────
 
+  const catIncomeId = gid();
+  const catSalaryKayneId = gid();
+  const catOtherIncomeId = gid();
+
   const catHousingId = gid();
   const catRentId = gid();
-  const catUtilitiesId = gid();
-  const catHomeInsuranceId = gid();
+  const catDewaId = gid();
+  const catInternetId = gid();
+  const catHouseHelpId = gid();
+  const catCleanerId = gid();
+
   const catFoodId = gid();
   const catGroceriesId = gid();
-  const catEatingOutId = gid();
+  const catRestaurantsId = gid();
+  const catTakeawayId = gid();
+  const catCoffeeId = gid();
+
   const catTransportId = gid();
-  const catFuelId = gid();
-  const catPublicTransportId = gid();
-  const catIncomeId = gid();
-  const catSalaryPrimaryId = gid();
-  const catSalarySecondaryId = gid();
-  const catEntertainmentId = gid();
+  const catCarPetrolId = gid();
+
+  const catPersonalId = gid();
   const catSubscriptionsId = gid();
-  const catHealthId = gid();
-  const catShoppingId = gid();
-  const catChildrenId = gid();
+  const catInsuranceId = gid();
+  const catLoanId = gid();
+  const catSylPersonalId = gid();
+
+  const catTravelId = gid();
+  const catTripsAbroadId = gid();
+  const catUkStorageId = gid();
+
   const catSavingsId = gid();
   const catTransfersId = gid();
-  const catHolidaysId = gid();
-  const catPersonalCareId = gid();
 
   const categories: Category[] = [
     { id: catIncomeId, name: 'Income', type: 'income', isSystem: true, sortOrder: 0, createdAt: ts, updatedAt: ts },
-    { id: catSalaryPrimaryId, name: 'Salary (Khalid)', type: 'income', parentId: catIncomeId, isSystem: false, sortOrder: 1, createdAt: ts, updatedAt: ts },
-    { id: catSalarySecondaryId, name: 'Salary (Lara)', type: 'income', parentId: catIncomeId, isSystem: false, sortOrder: 2, createdAt: ts, updatedAt: ts },
+    { id: catSalaryKayneId, name: 'Kayne Salary', type: 'income', parentId: catIncomeId, isSystem: false, sortOrder: 1, createdAt: ts, updatedAt: ts },
+    { id: catOtherIncomeId, name: 'Other Income', type: 'income', parentId: catIncomeId, isSystem: false, sortOrder: 2, createdAt: ts, updatedAt: ts },
 
-    { id: catHousingId, name: 'Housing', type: 'expense', isSystem: false, sortOrder: 10, budgetMonthly: 6000, createdAt: ts, updatedAt: ts },
-    { id: catRentId, name: 'Home Finance / Rent', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 11, budgetMonthly: 5300, createdAt: ts, updatedAt: ts },
-    { id: catUtilitiesId, name: 'Utilities & DEWA', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 12, budgetMonthly: 900, createdAt: ts, updatedAt: ts },
-    { id: catHomeInsuranceId, name: 'Home Insurance', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 13, budgetMonthly: 220, createdAt: ts, updatedAt: ts },
+    { id: catHousingId, name: 'Housing', type: 'expense', isSystem: false, sortOrder: 10, budgetMonthly: 18732, createdAt: ts, updatedAt: ts },
+    { id: catRentId, name: 'Rent', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 11, budgetMonthly: 12500, createdAt: ts, updatedAt: ts },
+    { id: catDewaId, name: 'DEWA', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 12, budgetMonthly: 1382, createdAt: ts, updatedAt: ts },
+    { id: catInternetId, name: 'Internet & TV', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 13, budgetMonthly: 450, createdAt: ts, updatedAt: ts },
+    { id: catHouseHelpId, name: 'House Help (nanny)', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 14, budgetMonthly: 4000, createdAt: ts, updatedAt: ts },
+    { id: catCleanerId, name: 'Cleaner', type: 'expense', parentId: catHousingId, isSystem: false, sortOrder: 15, budgetMonthly: 400, createdAt: ts, updatedAt: ts },
 
-    { id: catFoodId, name: 'Food & Drink', type: 'expense', isSystem: false, sortOrder: 20, budgetMonthly: 3500, createdAt: ts, updatedAt: ts },
+    { id: catFoodId, name: 'Food & Drink', type: 'expense', isSystem: false, sortOrder: 20, budgetMonthly: 3900, createdAt: ts, updatedAt: ts },
     { id: catGroceriesId, name: 'Groceries', type: 'expense', parentId: catFoodId, isSystem: false, sortOrder: 21, budgetMonthly: 2500, createdAt: ts, updatedAt: ts },
-    { id: catEatingOutId, name: 'Eating Out', type: 'expense', parentId: catFoodId, isSystem: false, sortOrder: 22, budgetMonthly: 1000, createdAt: ts, updatedAt: ts },
+    { id: catRestaurantsId, name: 'Restaurants', type: 'expense', parentId: catFoodId, isSystem: false, sortOrder: 22, budgetMonthly: 700, createdAt: ts, updatedAt: ts },
+    { id: catTakeawayId, name: 'Takeaway', type: 'expense', parentId: catFoodId, isSystem: false, sortOrder: 23, budgetMonthly: 600, createdAt: ts, updatedAt: ts },
+    { id: catCoffeeId, name: 'Coffee', type: 'expense', parentId: catFoodId, isSystem: false, sortOrder: 24, budgetMonthly: 100, createdAt: ts, updatedAt: ts },
 
-    { id: catTransportId, name: 'Transport', type: 'expense', isSystem: false, sortOrder: 30, budgetMonthly: 1800, createdAt: ts, updatedAt: ts },
-    { id: catFuelId, name: 'Fuel', type: 'expense', parentId: catTransportId, isSystem: false, sortOrder: 31, budgetMonthly: 600, createdAt: ts, updatedAt: ts },
-    { id: catPublicTransportId, name: 'Taxi / Metro / RTA', type: 'expense', parentId: catTransportId, isSystem: false, sortOrder: 32, budgetMonthly: 400, createdAt: ts, updatedAt: ts },
+    { id: catTransportId, name: 'Transport', type: 'expense', isSystem: false, sortOrder: 30, budgetMonthly: 2467, createdAt: ts, updatedAt: ts },
+    { id: catCarPetrolId, name: 'Car & Petrol', type: 'expense', parentId: catTransportId, isSystem: false, sortOrder: 31, budgetMonthly: 2467, createdAt: ts, updatedAt: ts },
 
-    { id: catEntertainmentId, name: 'Entertainment', type: 'expense', isSystem: false, sortOrder: 40, budgetMonthly: 600, createdAt: ts, updatedAt: ts },
-    { id: catSubscriptionsId, name: 'Subscriptions', type: 'expense', parentId: catEntertainmentId, isSystem: false, sortOrder: 41, budgetMonthly: 220, createdAt: ts, updatedAt: ts },
+    { id: catPersonalId, name: 'Personal', type: 'expense', isSystem: false, sortOrder: 40, budgetMonthly: 6605, createdAt: ts, updatedAt: ts },
+    { id: catSubscriptionsId, name: 'Subscriptions', type: 'expense', parentId: catPersonalId, isSystem: false, sortOrder: 41, budgetMonthly: 750, createdAt: ts, updatedAt: ts },
+    { id: catInsuranceId, name: 'Insurance', type: 'expense', parentId: catPersonalId, isSystem: false, sortOrder: 42, budgetMonthly: 864, createdAt: ts, updatedAt: ts },
+    { id: catLoanId, name: 'Loan Repayments', type: 'expense', parentId: catPersonalId, isSystem: false, sortOrder: 43, budgetMonthly: 2491, createdAt: ts, updatedAt: ts },
+    { id: catSylPersonalId, name: 'Sylvia Personal', type: 'expense', parentId: catPersonalId, isSystem: false, sortOrder: 44, budgetMonthly: 2500, createdAt: ts, updatedAt: ts },
 
-    { id: catHealthId, name: 'Health & Medical', type: 'expense', isSystem: false, sortOrder: 50, budgetMonthly: 400, createdAt: ts, updatedAt: ts },
-    { id: catShoppingId, name: 'Shopping', type: 'expense', isSystem: false, sortOrder: 60, budgetMonthly: 1000, createdAt: ts, updatedAt: ts },
-    { id: catChildrenId, name: 'Children & Nursery', type: 'expense', isSystem: false, sortOrder: 65, budgetMonthly: 1500, createdAt: ts, updatedAt: ts },
-    { id: catPersonalCareId, name: 'Personal Care', type: 'expense', isSystem: false, sortOrder: 70, budgetMonthly: 400, createdAt: ts, updatedAt: ts },
-    { id: catHolidaysId, name: 'Holidays & Travel', type: 'expense', isSystem: false, sortOrder: 80, budgetMonthly: 700, createdAt: ts, updatedAt: ts },
+    { id: catTravelId, name: 'Travel', type: 'expense', isSystem: false, sortOrder: 50, budgetMonthly: 3400, createdAt: ts, updatedAt: ts },
+    { id: catTripsAbroadId, name: 'Trips Abroad', type: 'expense', parentId: catTravelId, isSystem: false, sortOrder: 51, budgetMonthly: 3000, createdAt: ts, updatedAt: ts },
+    { id: catUkStorageId, name: 'UK Storage', type: 'expense', parentId: catTravelId, isSystem: false, sortOrder: 52, budgetMonthly: 400, createdAt: ts, updatedAt: ts },
 
     { id: catSavingsId, name: 'Savings', type: 'savings', isSystem: true, sortOrder: 90, createdAt: ts, updatedAt: ts },
     { id: catTransfersId, name: 'Transfers', type: 'transfer', isSystem: true, sortOrder: 95, createdAt: ts, updatedAt: ts },
@@ -151,81 +194,85 @@ export async function seedDatabase(): Promise<void> {
 
   // ── Accounts ──────────────────────────────────────────────────────────────
 
-  const endbCurrentId = gid();
-  const mashreqCurrentId = gid();
-  const adcbSavingsId = gid();
-  const ibInvestId = gid();
-  const difcPensionId = gid();
+  const jointCurrentId = gid();
+  const sylSavingsId = gid();
+  const kayneLiquidId = gid();
+  const kayneInvestId = gid();
+  const ccId = gid();
 
   const accounts: Account[] = [
     {
-      id: endbCurrentId,
-      name: 'Emirates NBD Current',
+      id: jointCurrentId,
+      name: 'Joint Current',
       type: 'current',
       provider: 'Emirates NBD',
-      balance: 16500,
+      balance: 8000,
       currency: 'AED',
       isActive: true,
       includeInNetWorth: true,
       sortOrder: 0,
-      personId: khalidId,
+      personId: kayneId,
+      notes: 'Day-to-day cash flow',
       createdAt: ts,
       updatedAt: ts,
     },
     {
-      id: mashreqCurrentId,
-      name: 'Mashreq Current',
-      type: 'current',
-      provider: 'Mashreq Bank',
-      balance: 8800,
+      id: sylSavingsId,
+      name: 'Sylvia Savings',
+      type: 'savings',
+      provider: 'Wio',
+      balance: 183618,
       currency: 'AED',
       isActive: true,
       includeInNetWorth: true,
+      interestRate: 0.045,
       sortOrder: 1,
-      personId: laraId,
+      personId: sylviaId,
       createdAt: ts,
       updatedAt: ts,
     },
     {
-      id: adcbSavingsId,
-      name: 'ADCB Savings',
+      id: kayneLiquidId,
+      name: 'Kayne Liquid Savings',
       type: 'savings',
-      provider: 'Abu Dhabi Commercial Bank',
-      balance: 89000,
+      provider: 'Wio Savings Spaces',
+      balance: 100000,
       currency: 'AED',
       isActive: true,
       includeInNetWorth: true,
       interestRate: 0.045,
       sortOrder: 2,
-      personId: khalidId,
+      personId: kayneId,
+      notes: 'Emergency fund + sinking funds',
       createdAt: ts,
       updatedAt: ts,
     },
     {
-      id: ibInvestId,
-      name: 'Interactive Brokers Investment',
+      id: kayneInvestId,
+      name: 'Kayne Investments',
       type: 'investment',
       provider: 'Interactive Brokers',
-      balance: 203000,
+      balance: 173121.29,
       currency: 'AED',
       isActive: true,
       includeInNetWorth: true,
       sortOrder: 3,
-      personId: khalidId,
+      personId: kayneId,
       createdAt: ts,
       updatedAt: ts,
     },
     {
-      id: difcPensionId,
-      name: 'DIFC Pension Fund',
-      type: 'pension_dc',
-      provider: 'DIFC Authority',
-      balance: 323000,
+      id: ccId,
+      name: 'ENBD Visa',
+      type: 'credit_card',
+      provider: 'Emirates NBD',
+      balance: 0,
       currency: 'AED',
       isActive: true,
       includeInNetWorth: true,
       sortOrder: 4,
-      personId: khalidId,
+      personId: kayneId,
+      notes: 'Paid in full each month',
       createdAt: ts,
       updatedAt: ts,
     },
@@ -235,22 +282,23 @@ export async function seedDatabase(): Promise<void> {
 
   // ── Liabilities ───────────────────────────────────────────────────────────
 
-  const homefinanceId = gid();
+  const barclaysLoanId = gid();
 
   const liabilities: Liability[] = [
     {
-      id: homefinanceId,
-      name: 'ENBD Home Finance',
-      type: 'mortgage',
-      outstandingBalance: 900000,
-      originalBalance: 1425000,
-      interestRate: 0.035,
-      monthlyPayment: 5300,
-      startDate: '2019-06-01',
-      endDate: '2049-01-01',
-      lender: 'Emirates NBD',
-      notes: 'Islamic home finance (Ijara), fixed rate 3.5%',
-      personId: khalidId,
+      id: barclaysLoanId,
+      name: 'Barclays Loan',
+      type: 'personal_loan',
+      outstandingBalance: 24240,
+      originalBalance: 48480,
+      interestRate: 0.07,
+      monthlyPayment: 1010,
+      startDate: '2024-01-01',
+      endDate: '2027-12-01',
+      lender: 'Barclays',
+      personId: kayneId,
+      includeInNetWorth: true,
+      notes: '4-year unsecured personal loan',
       createdAt: ts,
       updatedAt: ts,
     },
@@ -258,72 +306,34 @@ export async function seedDatabase(): Promise<void> {
 
   await db.liabilities.bulkAdd(liabilities);
 
-  // ── Assets ─────────────────────────────────────────────────────────────────
-
-  const apartmentId = gid();
-
-  const assets: Asset[] = [
-    {
-      id: apartmentId,
-      name: 'Dubai Marina Apartment',
-      type: 'property',
-      currentValue: 2330000,
-      purchaseValue: 1900000,
-      purchaseDate: '2019-06-01',
-      currency: 'AED',
-      address: 'Marina Promenade, Dubai Marina, Dubai, UAE',
-      includeInNetWorth: true,
-      personId: khalidId,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-  ];
-
-  await db.assets.bulkAdd(assets);
-
   // ── Investments ───────────────────────────────────────────────────────────
 
-  const vwceId = gid();
-  const cspxId = gid();
-  const ls80Id = gid();
+  const vooId = gid();
+  const vwrlId = gid();
 
   const investments: Investment[] = [
     {
-      id: vwceId,
-      accountId: ibInvestId,
-      ticker: 'VWCE',
-      name: 'Vanguard FTSE All-World UCITS ETF (Acc)',
-      assetClass: 'global_equity',
-      units: 320,
-      costBasisPerUnit: 102,
-      currentPricePerUnit: 128,
-      currency: 'USD',
-      isin: 'IE00BK5BQT80',
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: cspxId,
-      accountId: ibInvestId,
-      ticker: 'CSPX',
-      name: 'iShares Core S&P 500 UCITS ETF (Acc)',
+      id: vooId,
+      accountId: kayneInvestId,
+      ticker: 'VOO',
+      name: 'Vanguard S&P 500 ETF',
       assetClass: 'us_equity',
-      units: 150,
-      costBasisPerUnit: 380,
-      currentPricePerUnit: 445,
-      currency: 'USD',
-      isin: 'IE00B5BMR087',
+      units: 60,
+      costBasisPerUnit: 1700,
+      currentPricePerUnit: 2000,
+      currency: 'AED',
       createdAt: ts,
       updatedAt: ts,
     },
     {
-      id: ls80Id,
-      accountId: difcPensionId,
-      name: 'DIFC Balanced Growth Portfolio',
+      id: vwrlId,
+      accountId: kayneInvestId,
+      ticker: 'VWRL',
+      name: 'Vanguard FTSE All-World UCITS ETF',
       assetClass: 'global_equity',
-      units: 1200,
-      costBasisPerUnit: 240,
-      currentPricePerUnit: 268,
+      units: 150,
+      costBasisPerUnit: 290,
+      currentPricePerUnit: 350,
       currency: 'AED',
       createdAt: ts,
       updatedAt: ts,
@@ -332,38 +342,20 @@ export async function seedDatabase(): Promise<void> {
 
   await db.investments.bulkAdd(investments);
 
-  // ── Insurance Policies ────────────────────────────────────────────────────
-
-  const khalidLifeId = gid();
-  const laraCiId = gid();
+  // ── Insurance ─────────────────────────────────────────────────────────────
 
   const insurancePolicies: InsurancePolicy[] = [
     {
-      id: khalidLifeId,
-      name: "Khalid's Life Insurance",
+      id: gid(),
+      name: 'Zurich Life Insurance',
       type: 'life',
-      provider: 'MetLife UAE',
-      coverAmount: 2450000,
-      monthlyPremium: 220,
-      startDate: '2019-06-01',
-      renewalDate: '2049-06-01',
+      provider: 'Zurich',
+      coverAmount: 500000,
+      monthlyPremium: 864.33,
+      startDate: '2023-01-01',
       isActive: true,
-      personId: khalidId,
-      notes: 'Level term life cover to match home finance',
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: laraCiId,
-      name: "Lara's Critical Illness Cover",
-      type: 'critical_illness',
-      provider: 'AXA Gulf',
-      coverAmount: 980000,
-      monthlyPremium: 155,
-      startDate: '2021-03-01',
-      renewalDate: '2041-03-01',
-      isActive: true,
-      personId: laraId,
+      personId: kayneId,
+      notes: 'Level term life cover',
       createdAt: ts,
       updatedAt: ts,
     },
@@ -373,74 +365,77 @@ export async function seedDatabase(): Promise<void> {
 
   // ── Goals ─────────────────────────────────────────────────────────────────
 
-  const goalEfId = gid();
-  const goalRetId = gid();
+  const goalEmergencyId = gid();
+  const goalRetirementId = gid();
+  const goalHouseId = gid();
   const goalEduId = gid();
-  const goalHolId = gid();
 
   const goals: Goal[] = [
     {
-      id: goalEfId,
+      id: goalEmergencyId,
       name: 'Emergency Fund',
       type: 'emergency_fund',
       priority: 'essential',
-      targetAmount: 120000,
-      currentAmount: 89000,
-      monthlyContribution: 2500,
-      targetDate: '2026-06-01',
-      linkedAccountId: adcbSavingsId,
+      targetAmount: 210000, // ~6 months of expenses (35k/mo)
+      currentAmount: 100000,
+      monthlyContribution: 5000,
+      targetDate: '2027-06-01',
+      linkedAccountId: kayneLiquidId,
       isAchieved: false,
       icon: 'Shield',
       color: '#10b981',
-      personId: khalidId,
+      personId: kayneId,
       createdAt: ts,
       updatedAt: ts,
     },
     {
-      id: goalRetId,
-      name: 'Retirement Portfolio',
+      id: goalRetirementId,
+      name: 'Retirement at 60',
       type: 'retirement',
       priority: 'essential',
-      targetAmount: 3850000,
-      currentAmount: 323000,
-      monthlyContribution: 3500,
-      targetDate: '2050-03-15',
-      linkedAccountId: difcPensionId,
+      targetAmount: 20478267, // 4% safe withdrawal rate target from spreadsheet
+      currentAmount: 456739,
+      monthlyContribution: 19996,
+      targetDate: '2050-05-01',
+      linkedAccountId: kayneInvestId,
       isAchieved: false,
       icon: 'Sunset',
       color: '#f59e0b',
-      personId: khalidId,
+      personId: kayneId,
+      notes: 'Based on AED 465,504/yr expenses at 4% SWR',
+      createdAt: ts,
+      updatedAt: ts,
+    },
+    {
+      id: goalHouseId,
+      name: 'House Deposit',
+      type: 'house_deposit',
+      priority: 'important',
+      targetAmount: 600000, // 20% of AED 3M townhouse
+      currentAmount: 200000,
+      monthlyContribution: 10000,
+      targetDate: '2028-12-01',
+      isAchieved: false,
+      icon: 'Home',
+      color: '#3b82f6',
+      personId: kayneId,
+      notes: '20% deposit on AED 3M townhouse',
       createdAt: ts,
       updatedAt: ts,
     },
     {
       id: goalEduId,
-      name: "Adam's Education Fund",
+      name: "Sana's Education",
       type: 'education',
       priority: 'important',
-      targetAmount: 290000,
+      targetAmount: 1500000, // Dubai school 9yr + university
       currentAmount: 0,
-      monthlyContribution: 1000,
-      targetDate: '2042-09-01',
+      monthlyContribution: 3000,
+      targetDate: '2043-09-01',
       isAchieved: false,
       icon: 'GraduationCap',
       color: '#8b5cf6',
-      personId: adamId,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: goalHolId,
-      name: 'Maldives Holiday 2026',
-      type: 'holiday',
-      priority: 'nice_to_have',
-      targetAmount: 29000,
-      currentAmount: 5800,
-      monthlyContribution: 2000,
-      targetDate: '2026-08-01',
-      isAchieved: false,
-      icon: 'Plane',
-      color: '#06b6d4',
+      personId: sanaId,
       createdAt: ts,
       updatedAt: ts,
     },
@@ -453,36 +448,58 @@ export async function seedDatabase(): Promise<void> {
   const lifeEvents: LifeEvent[] = [
     {
       id: gid(),
-      name: 'Adam starts nursery',
+      name: 'Sana starts nursery',
       type: 'child_nursery',
       date: '2027-09-01',
-      personId: adamId,
-      estimatedCost: 2000,
-      ongoingMonthlyCostDelta: 1200,
-      notes: 'International nursery in Dubai Marina',
+      personId: sanaId,
+      estimatedCost: 0,
+      ongoingMonthlyCostDelta: 4000,
       isActive: true,
       createdAt: ts,
       updatedAt: ts,
     },
     {
       id: gid(),
-      name: 'ENBD Home Finance ends',
-      type: 'mortgage_end',
-      date: '2049-01-01',
-      personId: khalidId,
-      ongoingMonthlyCostDelta: -5300,
-      notes: 'Final payment — AED 5,300/month freed up',
+      name: 'Sana starts school',
+      type: 'child_school_private',
+      date: '2030-09-01',
+      personId: sanaId,
+      ongoingMonthlyCostDelta: 6000,
+      isActive: true,
+      notes: 'Private primary school in Dubai',
+      createdAt: ts,
+      updatedAt: ts,
+    },
+    {
+      id: gid(),
+      name: 'Sana university',
+      type: 'child_university',
+      date: '2043-09-01',
+      personId: sanaId,
+      estimatedCost: 100000,
+      ongoingMonthlyCostDelta: 10000,
       isActive: true,
       createdAt: ts,
       updatedAt: ts,
     },
     {
       id: gid(),
-      name: 'Khalid retires',
+      name: 'House purchase',
+      type: 'house_move',
+      date: '2028-06-01',
+      estimatedCost: 600000,
+      ongoingMonthlyCostDelta: 5000,
+      isActive: true,
+      notes: 'Townhouse with mortgage replacing rent',
+      createdAt: ts,
+      updatedAt: ts,
+    },
+    {
+      id: gid(),
+      name: 'Kayne retires at 60',
       type: 'retirement_primary',
-      date: '2050-03-15',
-      personId: khalidId,
-      notes: 'Target retirement at age 60',
+      date: '2050-04-15',
+      personId: kayneId,
       isActive: true,
       createdAt: ts,
       updatedAt: ts,
@@ -506,24 +523,27 @@ export async function seedDatabase(): Promise<void> {
     },
     {
       id: gid(),
-      name: 'Early Retirement at 55',
-      description: 'Khalid retires 5 years early',
+      name: 'Conservative',
+      description: 'Lower investment returns and slower income growth',
       isBaseline: false,
-      color: '#10b981',
-      overrides: { retirementAgeOverride: 55 },
+      color: '#64748b',
+      overrides: {
+        investmentReturnOverride: 0.03,
+        globalSpendingMultiplier: 1.05,
+      },
       createdAt: ts,
       updatedAt: ts,
     },
     {
       id: gid(),
-      name: 'Job Loss — 6 months',
-      description: 'Khalid loses primary income for 6 months',
+      name: 'Career Break — Sabbatical',
+      description: '12-month career break in 2030 — no primary income',
       isBaseline: false,
-      color: '#ef4444',
+      color: '#f59e0b',
       overrides: {
         primaryIncomeShock: {
-          startDate: new Date().toISOString().slice(0, 10),
-          durationMonths: 6,
+          startDate: '2030-01-01',
+          durationMonths: 12,
           multiplier: 0,
         },
       },
@@ -532,31 +552,25 @@ export async function seedDatabase(): Promise<void> {
     },
     {
       id: gid(),
-      name: 'Market Crash 30%',
-      description: 'Investment portfolios fall 30%',
+      name: 'Aggressive Saver',
+      description: 'Save AED 25k/mo instead of AED 20k baseline',
       isBaseline: false,
-      color: '#f59e0b',
-      overrides: { investmentReturnOverride: -0.30 },
+      color: '#10b981',
+      overrides: {
+        globalSpendingMultiplier: 0.85,
+      },
       createdAt: ts,
       updatedAt: ts,
     },
     {
       id: gid(),
-      name: 'High Inflation (6%)',
-      description: 'Persistent higher inflation scenario',
+      name: 'Market Crash 2027',
+      description: 'Equities fall 35% during 2027',
       isBaseline: false,
-      color: '#8b5cf6',
-      overrides: { inflationOverride: 0.06, globalSpendingMultiplier: 1.20 },
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: gid(),
-      name: 'Optimistic Growth',
-      description: 'Strong investment returns, income grows',
-      isBaseline: false,
-      color: '#06b6d4',
-      overrides: { investmentReturnOverride: 0.10 },
+      color: '#ef4444',
+      overrides: {
+        investmentReturnOverride: -0.35,
+      },
       createdAt: ts,
       updatedAt: ts,
     },
@@ -567,530 +581,120 @@ export async function seedDatabase(): Promise<void> {
   // ── Recurring Rules ───────────────────────────────────────────────────────
 
   const recurringRules: RecurringRule[] = [
-    {
-      id: gid(),
-      name: 'ENBD Home Finance',
-      accountId: endbCurrentId,
-      categoryId: catRentId,
-      amount: 5300,
-      type: 'expense',
-      frequency: 'monthly',
-      startDate: '2019-06-01',
-      endDate: '2049-01-01',
-      description: 'Islamic home finance monthly payment',
-      isActive: true,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: gid(),
-      name: 'DEWA — Electricity & Water',
-      accountId: endbCurrentId,
-      categoryId: catUtilitiesId,
-      amount: 650,
-      type: 'expense',
-      frequency: 'monthly',
-      startDate: '2019-06-01',
-      description: 'Dubai Electricity & Water Authority',
-      isActive: true,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: gid(),
-      name: 'du Telecom',
-      accountId: endbCurrentId,
-      categoryId: catUtilitiesId,
-      amount: 350,
-      type: 'expense',
-      frequency: 'monthly',
-      startDate: '2022-01-01',
-      description: 'du broadband + mobile family plan',
-      isActive: true,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: gid(),
-      name: 'Netflix',
-      accountId: mashreqCurrentId,
-      categoryId: catSubscriptionsId,
-      amount: 66,
-      type: 'expense',
-      frequency: 'monthly',
-      startDate: '2021-01-01',
-      description: 'Netflix Standard (AED 66/mo)',
-      isActive: true,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: gid(),
-      name: 'Spotify Family',
-      accountId: mashreqCurrentId,
-      categoryId: catSubscriptionsId,
-      amount: 55,
-      type: 'expense',
-      frequency: 'monthly',
-      startDate: '2020-01-01',
-      description: 'Spotify Family Plan',
-      isActive: true,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: gid(),
-      name: 'Khalid Salary',
-      accountId: endbCurrentId,
-      categoryId: catSalaryPrimaryId,
-      amount: 35000,
-      type: 'income',
-      frequency: 'monthly',
-      startDate: '2020-01-01',
-      description: 'Net salary — Khalid',
-      isActive: true,
-      createdAt: ts,
-      updatedAt: ts,
-    },
-    {
-      id: gid(),
-      name: 'Lara Salary',
-      accountId: mashreqCurrentId,
-      categoryId: catSalarySecondaryId,
-      amount: 22000,
-      type: 'income',
-      frequency: 'monthly',
-      startDate: '2020-01-01',
-      description: 'Net salary — Lara',
-      isActive: true,
-      createdAt: ts,
-      updatedAt: ts,
-    },
+    { id: gid(), name: 'Kayne Salary', accountId: jointCurrentId, categoryId: catSalaryKayneId, amount: 55000, type: 'income', frequency: 'monthly', startDate: '2024-09-01', description: 'Net salary — Diligent Partners', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Rent', accountId: jointCurrentId, categoryId: catRentId, amount: 12500, type: 'expense', frequency: 'monthly', startDate: '2025-03-01', description: 'Townhouse rent', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'DEWA', accountId: jointCurrentId, categoryId: catDewaId, amount: 1382, type: 'expense', frequency: 'monthly', startDate: '2025-03-01', description: 'Dubai Electricity & Water', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Internet & TV', accountId: jointCurrentId, categoryId: catInternetId, amount: 450, type: 'expense', frequency: 'monthly', startDate: '2025-03-01', description: 'du / etisalat', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Groceries', accountId: jointCurrentId, categoryId: catGroceriesId, amount: 2500, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'Carrefour / Spinneys', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Takeaway', accountId: jointCurrentId, categoryId: catTakeawayId, amount: 600, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'Talabat / Deliveroo', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Restaurants', accountId: jointCurrentId, categoryId: catRestaurantsId, amount: 700, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'Eating out', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'UK Storage', accountId: jointCurrentId, categoryId: catUkStorageId, amount: 400, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'UK storage unit', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Trips Abroad (sinking fund)', accountId: jointCurrentId, categoryId: catTripsAbroadId, amount: 3000, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'Travel sinking fund', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Car & Petrol', accountId: jointCurrentId, categoryId: catCarPetrolId, amount: 2467, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'MG5 finance + ENOC petrol', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Cleaner', accountId: jointCurrentId, categoryId: catCleanerId, amount: 400, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'Weekly cleaner', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'House Help (nanny)', accountId: jointCurrentId, categoryId: catHouseHelpId, amount: 4000, type: 'expense', frequency: 'monthly', startDate: '2025-08-01', description: 'Live-in nanny salary + visa', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Barclays Loan', accountId: jointCurrentId, categoryId: catLoanId, amount: 1010, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', endDate: '2027-12-01', description: 'Barclays personal loan', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Spotify', accountId: jointCurrentId, categoryId: catSubscriptionsId, amount: 40, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'Spotify Family', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Sylvia Personal', accountId: jointCurrentId, categoryId: catSylPersonalId, amount: 2500, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'Sylvia monthly allowance', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'CISI', accountId: jointCurrentId, categoryId: catSubscriptionsId, amount: 110, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'CISI membership', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Claude', accountId: jointCurrentId, categoryId: catSubscriptionsId, amount: 500, type: 'expense', frequency: 'monthly', startDate: '2024-06-01', description: 'Claude Pro / Max', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'Zurich Life Insurance', accountId: jointCurrentId, categoryId: catInsuranceId, amount: 864.33, type: 'expense', frequency: 'monthly', startDate: '2023-01-01', description: 'Zurich life cover', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'ChatGPT', accountId: jointCurrentId, categoryId: catSubscriptionsId, amount: 100, type: 'expense', frequency: 'monthly', startDate: '2024-01-01', description: 'ChatGPT Plus', isActive: true, createdAt: ts, updatedAt: ts },
+    { id: gid(), name: 'tabby', accountId: jointCurrentId, categoryId: catLoanId, amount: 1481, type: 'expense', frequency: 'monthly', startDate: '2025-03-01', description: 'tabby BNPL repayments', isActive: true, createdAt: ts, updatedAt: ts },
   ];
 
   await db.recurringRules.bulkAdd(recurringRules);
 
-  // ── Transactions (18 months) ──────────────────────────────────────────────
+  // ── Transactions (last 4 months: Feb 2026 → May 2026) ────────────────────
+  // Generates ~25 realistic transactions per month from the budget categories
+  // so the cash-flow charts have something to render.
 
-  const transactions: Transaction[] = [];
+  const txs: Transaction[] = [];
+  const txMonths = ['2026-02', '2026-03', '2026-04', '2026-05'];
+  const yyyymmTo = (ym: string, day: number) => `${ym}-${String(day).padStart(2, '0')}`;
 
-  for (let m = 0; m < 18; m++) {
-    // Salary — Khalid
-    transactions.push({
+  function pushTx(t: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'isReviewed'> & { isReviewed?: boolean }) {
+    txs.push({
       id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 28),
-      description: 'WPS SALARY EMPLOYER',
-      amount: 35000,
-      type: 'income',
-      categoryId: catSalaryPrimaryId,
-      isReviewed: true,
+      isReviewed: t.isReviewed ?? true,
       createdAt: ts,
       updatedAt: ts,
+      ...t,
     });
-
-    // Salary — Lara
-    transactions.push({
-      id: gid(),
-      accountId: mashreqCurrentId,
-      date: dateInMonth(17 - m, 28),
-      description: 'WPS SALARY LARA EMPLOYER',
-      amount: 22000,
-      type: 'income',
-      categoryId: catSalarySecondaryId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Home Finance
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 1),
-      description: 'ENBD HOME FINANCE DD',
-      amount: 5300,
-      type: 'expense',
-      categoryId: catRentId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // DEWA
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 5),
-      description: 'DEWA ELECTRICITY & WATER',
-      amount: 600 + Math.round(Math.random() * 200),
-      type: 'expense',
-      categoryId: catUtilitiesId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // du Telecom
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 10),
-      description: 'DU TELECOM DD',
-      amount: 350,
-      type: 'expense',
-      categoryId: catUtilitiesId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Home insurance
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 15),
-      description: 'AXA HOME INSURANCE DD',
-      amount: 210,
-      type: 'expense',
-      categoryId: catHomeInsuranceId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Life insurance
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 16),
-      description: 'METLIFE INSURANCE DD',
-      amount: 220,
-      type: 'expense',
-      categoryId: catHealthId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Critical illness
-    transactions.push({
-      id: gid(),
-      accountId: mashreqCurrentId,
-      date: dateInMonth(17 - m, 16),
-      description: 'AXA GULF CRITICAL ILLNESS DD',
-      amount: 155,
-      type: 'expense',
-      categoryId: catHealthId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Groceries — weekly x4
-    for (let w = 0; w < 4; w++) {
-      const groceryAmount = 480 + Math.round(Math.random() * 280);
-      transactions.push({
-        id: gid(),
-        accountId: w % 2 === 0 ? endbCurrentId : mashreqCurrentId,
-        date: dateInMonth(17 - m, 4 + w * 7),
-        description: w % 3 === 0 ? 'CARREFOUR DUBAI MARINA' : w % 3 === 1 ? 'WAITROSE JBR' : 'SPINNEYS MARINA',
-        amount: groceryAmount,
-        type: 'expense',
-        categoryId: catGroceriesId,
-        isReviewed: true,
-        createdAt: ts,
-        updatedAt: ts,
-      });
-    }
-
-    // Eating out 2-3 times per month
-    const eatOutCount = 2 + (m % 2);
-    for (let e = 0; e < eatOutCount; e++) {
-      transactions.push({
-        id: gid(),
-        accountId: mashreqCurrentId,
-        date: dateInMonth(17 - m, 8 + e * 5),
-        description: e % 3 === 0 ? 'ZUMA DIFC' : e % 3 === 1 ? 'COYA RESTAURANT' : 'CAESARS PALACE',
-        amount: 180 + Math.round(Math.random() * 280),
-        type: 'expense',
-        categoryId: catEatingOutId,
-        isReviewed: m < 3,
-        createdAt: ts,
-        updatedAt: ts,
-      });
-    }
-
-    // Fuel
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 9),
-      description: 'ENOC PETROL STATION',
-      amount: 290 + Math.round(Math.random() * 140),
-      type: 'expense',
-      categoryId: catFuelId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Taxi/RTA
-    if (m % 2 === 0) {
-      transactions.push({
-        id: gid(),
-        accountId: mashreqCurrentId,
-        date: dateInMonth(17 - m, 14),
-        description: 'CAREEM / RTA METRO',
-        amount: 160 + Math.round(Math.random() * 120),
-        type: 'expense',
-        categoryId: catPublicTransportId,
-        isReviewed: true,
-        createdAt: ts,
-        updatedAt: ts,
-      });
-    }
-
-    // Netflix
-    transactions.push({
-      id: gid(),
-      accountId: mashreqCurrentId,
-      date: dateInMonth(17 - m, 20),
-      description: 'NETFLIX.COM',
-      amount: 66,
-      type: 'expense',
-      categoryId: catSubscriptionsId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Spotify
-    transactions.push({
-      id: gid(),
-      accountId: mashreqCurrentId,
-      date: dateInMonth(17 - m, 21),
-      description: 'SPOTIFY AB',
-      amount: 55,
-      type: 'expense',
-      categoryId: catSubscriptionsId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Shopping
-    if (m % 3 === 0 || Math.random() > 0.4) {
-      transactions.push({
-        id: gid(),
-        accountId: m % 2 === 0 ? endbCurrentId : mashreqCurrentId,
-        date: dateInMonth(17 - m, 13),
-        description: m % 4 === 0 ? 'MALL OF THE EMIRATES' : m % 4 === 1 ? 'DUBAI MALL H&M' : m % 4 === 2 ? 'MARKS & SPENCER UAE' : 'NOON.COM',
-        amount: 190 + Math.round(Math.random() * 480),
-        type: 'expense',
-        categoryId: catShoppingId,
-        isReviewed: m < 6,
-        createdAt: ts,
-        updatedAt: ts,
-      });
-    }
-
-    // Nursery
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 2),
-      description: 'BRIGHT STARS NURSERY DUBAI',
-      amount: 4600,
-      type: 'expense',
-      categoryId: catChildrenId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Health (pharmacy, dentist occasionally)
-    if (m % 4 === 0) {
-      transactions.push({
-        id: gid(),
-        accountId: mashreqCurrentId,
-        date: dateInMonth(17 - m, 18),
-        description: m % 8 === 0 ? 'LIFE PHARMACY JBR' : 'MEDICLINIC MARINA',
-        amount: 75 + Math.round(Math.random() * 280),
-        type: 'expense',
-        categoryId: catHealthId,
-        isReviewed: true,
-        createdAt: ts,
-        updatedAt: ts,
-      });
-    }
-
-    // Personal care
-    transactions.push({
-      id: gid(),
-      accountId: mashreqCurrentId,
-      date: dateInMonth(17 - m, 17),
-      description: m % 2 === 0 ? 'CHARLES WORTHINGTON SALON' : 'TIPS & TOES SPA',
-      amount: 120 + Math.round(Math.random() * 140),
-      type: 'expense',
-      categoryId: catPersonalCareId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Savings transfer to ADCB
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 29),
-      description: 'TRANSFER TO ADCB SAVINGS',
-      amount: 2500,
-      type: 'transfer',
-      categoryId: catSavingsId,
-      transferToAccountId: adcbSavingsId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Investment contribution (monthly)
-    transactions.push({
-      id: gid(),
-      accountId: endbCurrentId,
-      date: dateInMonth(17 - m, 29),
-      description: 'IB INVESTMENT CONTRIBUTION',
-      amount: 2900,
-      type: 'investment',
-      categoryId: catSavingsId,
-      transferToAccountId: ibInvestId,
-      isReviewed: true,
-      createdAt: ts,
-      updatedAt: ts,
-    });
-
-    // Holiday savings (some months)
-    if (m >= 6 && m <= 12) {
-      transactions.push({
-        id: gid(),
-        accountId: endbCurrentId,
-        date: dateInMonth(17 - m, 29),
-        description: 'HOLIDAY FUND TRANSFER',
-        amount: 2000,
-        type: 'transfer',
-        categoryId: catHolidaysId,
-        isReviewed: true,
-        createdAt: ts,
-        updatedAt: ts,
-      });
-    }
   }
 
-  // Add some one-off transactions
-  // Holiday booking
-  transactions.push({
-    id: gid(),
-    accountId: endbCurrentId,
-    date: subtractMonths(14),
-    description: 'EMIRATES AIRLINES FLIGHTS',
-    amount: 2950,
-    type: 'expense',
-    categoryId: catHolidaysId,
-    isReviewed: true,
-    notes: 'Maldives flights - summer 2025',
-    createdAt: ts,
-    updatedAt: ts,
-  });
+  const rand = (min: number, max: number) => Math.round(min + Math.random() * (max - min));
 
-  transactions.push({
-    id: gid(),
-    accountId: endbCurrentId,
-    date: subtractMonths(13),
-    description: 'JUMEIRAH MALDIVES RESORT',
-    amount: 4300,
-    type: 'expense',
-    categoryId: catHolidaysId,
-    isReviewed: true,
-    notes: 'Resort booking Maldives',
-    createdAt: ts,
-    updatedAt: ts,
-  });
+  for (const ym of txMonths) {
+    // Income
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 28), description: 'WPS SALARY DILIGENT PARTNERS', amount: 55000, type: 'income', categoryId: catSalaryKayneId });
 
-  // Eid spending
-  transactions.push({
-    id: gid(),
-    accountId: endbCurrentId,
-    date: subtractMonths(4),
-    description: 'EID GIFTS & GIFTS - NOON.COM',
-    amount: 1650,
-    type: 'expense',
-    categoryId: catShoppingId,
-    isReviewed: true,
-    notes: 'Eid al-Adha gifts',
-    createdAt: ts,
-    updatedAt: ts,
-  });
+    // Housing
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 1), description: 'RENT — TOWNHOUSE', amount: 12500, type: 'expense', categoryId: catRentId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 5), description: 'DEWA ELECTRICITY & WATER', amount: rand(1200, 1600), type: 'expense', categoryId: catDewaId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 8), description: 'DU INTERNET & TV', amount: 450, type: 'expense', categoryId: catInternetId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 1), description: 'NANNY SALARY', amount: 4000, type: 'expense', categoryId: catHouseHelpId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 6), description: 'WEEKLY CLEANER', amount: 400, type: 'expense', categoryId: catCleanerId });
 
-  // Car service
-  transactions.push({
-    id: gid(),
-    accountId: endbCurrentId,
-    date: subtractMonths(8),
-    description: 'AL TAYER MOTORS SERVICE',
-    amount: 1380,
-    type: 'expense',
-    categoryId: catTransportId,
-    isReviewed: true,
-    createdAt: ts,
-    updatedAt: ts,
-  });
+    // Groceries weekly
+    for (let w = 0; w < 4; w++) {
+      pushTx({
+        accountId: jointCurrentId,
+        date: yyyymmTo(ym, 4 + w * 7),
+        description: w % 3 === 0 ? 'CARREFOUR DUBAI HILLS' : w % 3 === 1 ? 'SPINNEYS' : 'WAITROSE DIFC',
+        amount: rand(450, 750),
+        type: 'expense',
+        categoryId: catGroceriesId,
+      });
+    }
 
-  // Tax refund equivalent (EOSG gratuity received)
-  transactions.push({
-    id: gid(),
-    accountId: endbCurrentId,
-    date: subtractMonths(9),
-    description: 'EMPLOYER GRATUITY PAYMENT',
-    amount: 8400,
-    type: 'income',
-    categoryId: catIncomeId,
-    isReviewed: true,
-    notes: 'End-of-service gratuity',
-    createdAt: ts,
-    updatedAt: ts,
-  });
+    // Takeaway 3x
+    for (let i = 0; i < 3; i++) {
+      pushTx({
+        accountId: jointCurrentId,
+        date: yyyymmTo(ym, 6 + i * 8),
+        description: i % 2 === 0 ? 'TALABAT' : 'DELIVEROO',
+        amount: rand(120, 240),
+        type: 'expense',
+        categoryId: catTakeawayId,
+      });
+    }
 
-  // AC maintenance
-  transactions.push({
-    id: gid(),
-    accountId: endbCurrentId,
-    date: subtractMonths(11),
-    description: 'EMPOWER DISTRICT COOLING',
-    amount: 950,
-    type: 'expense',
-    categoryId: catHousingId,
-    isReviewed: true,
-    notes: 'District cooling annual service',
-    createdAt: ts,
-    updatedAt: ts,
-  });
+    // Restaurants 2x
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 12), description: 'NOBU PALM', amount: rand(280, 480), type: 'expense', categoryId: catRestaurantsId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 22), description: 'AVLI BY TASHAS', amount: rand(220, 360), type: 'expense', categoryId: catRestaurantsId });
 
-  // Anniversary dinner
-  transactions.push({
-    id: gid(),
-    accountId: mashreqCurrentId,
-    date: subtractMonths(10),
-    description: 'NOBU ATLANTIS PALM',
-    amount: 720,
-    type: 'expense',
-    categoryId: catEatingOutId,
-    isReviewed: true,
-    notes: 'Anniversary dinner',
-    createdAt: ts,
-    updatedAt: ts,
-  });
+    // Coffee
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 10), description: 'CIRCLE CAFE', amount: rand(60, 130), type: 'expense', categoryId: catCoffeeId });
 
-  await db.transactions.bulkAdd(transactions);
+    // Transport
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 1), description: 'MG5 CAR FINANCE', amount: 1700, type: 'expense', categoryId: catCarPetrolId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 9), description: 'ENOC PETROL', amount: rand(280, 420), type: 'expense', categoryId: catCarPetrolId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 23), description: 'ENOC PETROL', amount: rand(220, 380), type: 'expense', categoryId: catCarPetrolId });
+
+    // Subscriptions
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 14), description: 'SPOTIFY', amount: 40, type: 'expense', categoryId: catSubscriptionsId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 15), description: 'CHATGPT PLUS', amount: 100, type: 'expense', categoryId: catSubscriptionsId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 16), description: 'CLAUDE MAX', amount: 500, type: 'expense', categoryId: catSubscriptionsId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 17), description: 'CISI MEMBERSHIP', amount: 110, type: 'expense', categoryId: catSubscriptionsId });
+
+    // Insurance & loans
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 18), description: 'ZURICH LIFE INSURANCE', amount: 864.33, type: 'expense', categoryId: catInsuranceId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 1), description: 'BARCLAYS LOAN', amount: 1010, type: 'expense', categoryId: catLoanId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 1), description: 'TABBY REPAYMENT', amount: 1481, type: 'expense', categoryId: catLoanId });
+
+    // Sylvia personal
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 2), description: 'SYLVIA ALLOWANCE', amount: 2500, type: 'transfer', categoryId: catSylPersonalId, transferToAccountId: sylSavingsId });
+
+    // Travel
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 25), description: 'UK STORAGE UNIT', amount: 400, type: 'expense', categoryId: catUkStorageId });
+
+    // Savings transfers
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 29), description: 'TRANSFER TO WIO SAVINGS', amount: 5000, type: 'transfer', categoryId: catSavingsId, transferToAccountId: kayneLiquidId });
+    pushTx({ accountId: jointCurrentId, date: yyyymmTo(ym, 29), description: 'INVESTMENT CONTRIBUTION', amount: 8000, type: 'investment', categoryId: catSavingsId, transferToAccountId: kayneInvestId });
+  }
+
+  await db.transactions.bulkAdd(txs);
 
   // ── App Settings ──────────────────────────────────────────────────────────
 
@@ -1100,98 +704,81 @@ export async function seedDatabase(): Promise<void> {
     locale: 'en-AE',
     theme: 'system',
     density: 'comfortable',
-    householdName: 'Al-Rashid Household',
+    householdName: 'Osbourne Household',
     onboardingComplete: true,
-    primaryIncome: 35000,
-    secondaryIncome: 22000,
-    primaryPersonId: khalidId,
-    secondaryPersonId: laraId,
+    primaryIncome: 55000,
+    secondaryIncome: 0,
+    primaryPersonId: kayneId,
+    secondaryPersonId: sylviaId,
     projection: {
       lifeExpectancyPrimary: 90,
       retirementAgePrimary: 60,
-      retirementAgeSecondary: 55,
+      retirementAgeSecondary: 60,
       statePensionAgePrimary: 60,
-      statePensionAgeSecondary: 55,
+      statePensionAgeSecondary: 60,
       statePensionWeeklyPrimary: 0,
       statePensionWeeklySecondary: 0,
       inflationRate: 0.025,
-      investmentReturnNominalAnnual: 0.07,
-      investmentReturnRealAnnual: 0.045,
-      pensionContributionRate: 0.05,
-      employerMatchRate: 0.05,
+      investmentReturnNominalAnnual: 0.075,
+      investmentReturnRealAnnual: 0.05,
+      pensionContributionRate: 0.10, // UAE has no auto-enrol — manual contribution
+      employerMatchRate: 0,
       pensionGrowthRate: 0.07,
-      effectiveTaxRate: 0.0, // UAE has no income tax
+      effectiveTaxRate: 0.0, // UAE: no income tax
       safeWithdrawalRate: 0.04,
       propertyGrowthRate: 0.04,
-      stateRetirementIncome: 0, // UAE has no state pension
+      stateRetirementIncome: 0, // UAE: no state pension
     },
   };
 
   await db.settings.add(settings);
 
-  // ── Monthly Snapshots (13 months) ─────────────────────────────────────────
-  // Generate synthetic month-by-month net worth history ending at the current
-  // net worth, so the Today page sparkline has real data to render.
-  const currentLiquid = accounts
-    .filter(a => ['current', 'savings', 'cash'].includes(a.type))
-    .reduce((s, a) => s + a.balance, 0);
-  const currentInvestments = accounts
-    .filter(a => ['investment', 'isa_stocks'].includes(a.type))
-    .reduce((s, a) => s + a.balance, 0);
-  const currentPension = accounts
-    .filter(a => a.type === 'pension_dc' || a.type === 'pension_db')
-    .reduce((s, a) => s + a.balance, 0);
-  const currentAssets = assets
-    .filter(a => a.includeInNetWorth)
-    .reduce((s, a) => s + a.currentValue, 0);
-  const currentLiab = liabilities.reduce((s, l) => s + l.outstandingBalance, 0);
-  const currentNetWorth = currentLiquid + currentInvestments + currentPension + currentAssets - currentLiab;
+  // ── Monthly Snapshots — backfill from REAL spreadsheet history ────────────
 
-  // Walk back 12 months from "now": each prior month was the current value
-  // discounted by ~savings + investment growth, so the series ends at today.
-  // Use a roughly 1.0% monthly net-worth growth (mix of savings + market gain).
   const monthlySnapshots: MonthlySnapshot[] = [];
-  const monthlyGrowth = 0.010;
-  const today = new Date();
-  for (let i = 12; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    const yearMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    // Add small noise per month (+/- 0.4%) so the line isn't a perfect curve
-    const noise = 1 + (Math.random() - 0.5) * 0.008;
-    const factor = Math.pow(1 + monthlyGrowth, -i) * noise;
-    const nw = currentNetWorth * factor;
-    const liquid = currentLiquid * factor;
-    const inv = currentInvestments * factor;
-    const pen = currentPension * factor;
-    const liab = currentLiab * (1 + i * 0.002); // liabilities slightly higher in the past
-    const totalAssetsAtT = nw + liab;
+  const auditEntries: AuditEntry[] = [];
+  const monthlyIncome = 55000;
+  const monthlyExpensesEstimate = 35004;
+
+  for (let i = 0; i < REAL_HISTORY.length; i++) {
+    const m = REAL_HISTORY[i];
+    const prev = i > 0 ? REAL_HISTORY[i - 1] : null;
+    const savingsAmount = prev ? m.total - prev.total : 0;
+    const totalExpenses = Math.max(0, monthlyIncome - savingsAmount);
+    const savingsRate = monthlyIncome > 0 ? Math.max(-1, Math.min(1, savingsAmount / monthlyIncome)) : 0;
+
+    const snapId = gid();
     monthlySnapshots.push({
-      id: gid(),
-      yearMonth,
-      netWorth: Math.round(nw),
-      liquidSavings: Math.round(liquid),
-      investments: Math.round(inv),
-      pension: Math.round(pen),
-      totalLiabilities: Math.round(liab),
-      totalAssets: Math.round(totalAssetsAtT),
-      totalIncome: 57000, // 35k + 22k household monthly
-      totalExpenses: 42000,
-      savingsRate: 0.26,
+      id: snapId,
+      yearMonth: m.month,
+      netWorth: Math.round(m.total - m.ccTotal),
+      liquidSavings: Math.round(m.total * 0.4),
+      investments: Math.round(m.total * 0.6),
+      pension: 0,
+      totalLiabilities: Math.round(m.ccTotal),
+      totalAssets: Math.round(m.total),
+      totalIncome: monthlyIncome,
+      totalExpenses: i === 0 ? monthlyExpensesEstimate : Math.round(totalExpenses),
+      savingsRate,
       createdAt: ts,
     });
-  }
-  // Ensure the most recent snapshot exactly matches today's net worth
-  if (monthlySnapshots.length > 0) {
-    const last = monthlySnapshots[monthlySnapshots.length - 1];
-    last.netWorth = Math.round(currentNetWorth);
-    last.liquidSavings = Math.round(currentLiquid);
-    last.investments = Math.round(currentInvestments);
-    last.pension = Math.round(currentPension);
-    last.totalLiabilities = Math.round(currentLiab);
-    last.totalAssets = Math.round(currentLiquid + currentInvestments + currentPension + currentAssets);
+
+    if (m.comment) {
+      auditEntries.push({
+        id: gid(),
+        table: 'monthlySnapshots',
+        recordId: snapId,
+        action: 'create',
+        after: { yearMonth: m.month, note: m.comment },
+        timestamp: new Date(`${m.month}-15T12:00:00.000Z`).toISOString(),
+      });
+    }
   }
 
   await db.monthlySnapshots.bulkAdd(monthlySnapshots);
+  if (auditEntries.length > 0) {
+    await db.auditLog.bulkAdd(auditEntries);
+  }
 }
 
 // ─── Check and seed ───────────────────────────────────────────────────────────

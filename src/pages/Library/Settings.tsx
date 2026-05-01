@@ -1,15 +1,21 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { db } from '../../db/schema';
 import { Card, CardHeader, CardTitle, Button, Input, Select, Skeleton } from '../../components/ui';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { useAppStore } from '../../stores/useAppStore';
+import { syncWorkbook, type XLSXSyncReport } from '../../lib/xlsxImport';
+import { formatCurrency } from '../../lib/format';
 
 export default function Settings() {
   const { theme, setTheme, density, setDensity } = useAppStore();
   const settings = useLiveQuery(() => db.settings.get('singleton'), []);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>(null);
+  const xlsxInputRef = useRef<HTMLInputElement>(null);
+  const [xlsxBusy, setXlsxBusy] = useState(false);
+  const [xlsxReport, setXlsxReport] = useState<XLSXSyncReport | null>(null);
+  const [xlsxError, setXlsxError] = useState<string | null>(null);
 
   if (settings && !form) {
     setForm({ ...settings });
@@ -20,6 +26,22 @@ export default function Settings() {
     setSaving(true);
     await db.settings.put(form);
     setSaving(false);
+  };
+
+  const handleWorkbookFile = async (file: File) => {
+    setXlsxError(null);
+    setXlsxReport(null);
+    setXlsxBusy(true);
+    try {
+      const report = await syncWorkbook(file);
+      setXlsxReport(report);
+    } catch (err) {
+      console.error(err);
+      setXlsxError('Could not read the workbook. Make sure it has Monthly Reviews and Budget tabs.');
+    } finally {
+      setXlsxBusy(false);
+      if (xlsxInputRef.current) xlsxInputRef.current.value = '';
+    }
   };
 
   if (!settings || !form) return <PageLayout><Skeleton className="h-96" /></PageLayout>;
@@ -85,6 +107,66 @@ export default function Settings() {
               <label className="text-sm font-medium text-text-secondary">Income Tax Rate (%)</label>
               <input type="number" step="1" value={(form.projection.effectiveTaxRate * 100).toFixed(0)} onChange={e => setForm({ ...form, projection: { ...form.projection, effectiveTaxRate: Number(e.target.value) / 100 } })} className="px-3 py-2 text-sm rounded-lg border border-border bg-surface-raised font-mono focus:outline-none focus:border-accent" />
             </div>
+          </div>
+        </Card>
+
+        {/* Sync from spreadsheet */}
+        <Card>
+          <CardHeader><CardTitle>Sync from spreadsheet</CardTitle></CardHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Drop in your monthly budget workbook to refresh net-worth history, comments and the retirement target. The workbook should have a <span className="font-medium text-text-primary">Monthly Reviews</span> tab (with Savings Syl, Savings Kayne, Total, CC, Comment rows) and a <span className="font-medium text-text-primary">Budget</span> tab. A <span className="font-medium text-text-primary">Retirement</span> tab is optional and refreshes the retirement goal target.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                ref={xlsxInputRef}
+                type="file"
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) handleWorkbookFile(f);
+                }}
+              />
+              <Button
+                onClick={() => xlsxInputRef.current?.click()}
+                disabled={xlsxBusy}
+                loading={xlsxBusy}
+              >
+                Choose XLSX...
+              </Button>
+              {xlsxBusy && (
+                <span className="text-xs text-text-tertiary">Reading workbook…</span>
+              )}
+            </div>
+
+            {xlsxError && (
+              <div className="text-sm text-negative bg-negative/10 rounded-lg px-3 py-2">
+                {xlsxError}
+              </div>
+            )}
+
+            {xlsxReport && (
+              <div className="rounded-lg border border-border bg-surface-raised px-3 py-3 space-y-2">
+                <p className="text-sm font-medium text-text-primary">
+                  {xlsxReport.monthsAdded === 0 && xlsxReport.monthsUpdated === 0
+                    ? 'No new data found.'
+                    : `Synced ${xlsxReport.monthsAdded} new month${xlsxReport.monthsAdded === 1 ? '' : 's'} · ${xlsxReport.monthsUpdated} updated`}
+                </p>
+                {xlsxReport.retirementTargetAED && (
+                  <p className="text-xs text-text-tertiary">
+                    Retirement target updated to {formatCurrency(xlsxReport.retirementTargetAED, form.currency || 'AED')}
+                  </p>
+                )}
+                {xlsxReport.notes.length > 0 && (
+                  <ul className="text-xs text-text-secondary space-y-1 max-h-40 overflow-y-auto pt-1">
+                    {xlsxReport.notes.map((n, i) => (
+                      <li key={i} className="font-mono">{n}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </Card>
       </div>
